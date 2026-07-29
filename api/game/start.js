@@ -1,8 +1,9 @@
 import { randomUUID, randomInt } from 'node:crypto';
 import { kv } from '../../src/server/kv.js';
 import { parseCookies, readJsonBody } from '../../src/server/request.js';
-import { UID_COOKIE, VARIANT_COOKIE, MAX_ATTEMPTS_PER_DAY } from '../../src/server/config.js';
+import { UID_COOKIE, MAX_ATTEMPTS_PER_DAY } from '../../src/server/config.js';
 import { todayUTC, secondsUntilNextUTCMidnight } from '../../src/server/date.js';
+import { lockDailyGameChoice } from '../../src/server/gameChoice.js';
 import { PHYSICS_VERSION as FLAPPY_PHYSICS_VERSION, SESSION as FLAPPY_SESSION } from '../../src/shared/flappyPhysics.js';
 import { PHYSICS_VERSION as TAP_PHYSICS_VERSION, SESSION as TAP_SESSION } from '../../src/shared/tapPhysics.js';
 
@@ -17,11 +18,16 @@ export default async function handler(req, res) {
   const game = body.game;
   if (game !== 'flappy' && game !== 'tap') return res.status(400).json({ error: 'invalid_game' });
 
-  if (cookies[VARIANT_COOKIE] && cookies[VARIANT_COOKIE] !== game) {
-    return res.status(403).json({ error: 'wrong_variant', message: 'This game is not assigned to you.' });
+  const date = todayUTC();
+  const selectedGame = await lockDailyGameChoice(uid, date, game);
+  if (selectedGame !== game) {
+    return res.status(403).json({
+      error: 'daily_game_locked',
+      message: 'You already chose your game for today. Come back tomorrow to switch.',
+      selectedGame,
+    });
   }
 
-  const date = todayUTC();
   const dailyKey = `attempts:${uid}:${date}`;
   const attemptsToday = await kv.incr(dailyKey);
   if (attemptsToday === 1) await kv.expire(dailyKey, secondsUntilNextUTCMidnight());
@@ -64,6 +70,7 @@ export default async function handler(req, res) {
     physicsVersion,
     maxDurationMs,
     rewardEligible: !alreadyRewardedToday,
+    selectedGame,
     attemptsRemainingToday: Math.max(0, MAX_ATTEMPTS_PER_DAY - attemptsToday),
   });
 }

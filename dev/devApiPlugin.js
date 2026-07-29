@@ -1,4 +1,4 @@
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -7,15 +7,10 @@ function readCookie(header, name) {
   return match ? match[1] : null;
 }
 
-function assignVariant(uid) {
-  const digest = createHash('sha256').update(uid).digest();
-  return digest[0] % 2 === 0 ? 'flappy' : 'tap';
-}
-
 /**
  * Dev-only Vite plugin standing in for two things Vercel provides in
- * production and that plain `vite dev` does not: Edge Middleware (uid/variant
- * cookie assignment, mirrors middleware.js) and the /api/* serverless
+ * production and that plain `vite dev` does not: Edge Middleware (anonymous
+ * uid cookie assignment, mirrors middleware.js) and the /api/* serverless
  * functions. It mounts the REAL handler files from /api, so gameplay,
  * scoring, and reward issuance behave identically to production — the only
  * thing simulated is the request plumbing (cookies, Set-Cookie, req.query),
@@ -30,22 +25,18 @@ export function devApiPlugin() {
 
         const cookieHeader = req.headers.cookie || '';
         const hasUid = readCookie(cookieHeader, 'mb_uid');
-        const hasVariant = readCookie(cookieHeader, 'mb_variant');
-        if (hasUid && hasVariant) return next();
+        if (hasUid) return next();
 
         const uid = hasUid || randomUUID();
-        const variant = hasVariant || assignVariant(uid);
-        res.setHeader('Set-Cookie', [
-          `mb_uid=${uid}; Path=/; Max-Age=${ONE_YEAR_SECONDS}; SameSite=Lax`,
-          `mb_variant=${variant}; Path=/; Max-Age=${ONE_YEAR_SECONDS}; SameSite=Lax`,
-        ]);
-        req.headers.cookie = `${cookieHeader}; mb_uid=${uid}; mb_variant=${variant}`;
+        res.setHeader('Set-Cookie', `mb_uid=${uid}; Path=/; Max-Age=${ONE_YEAR_SECONDS}; SameSite=Lax`);
+        req.headers.cookie = `${cookieHeader}; mb_uid=${uid}`;
         next();
       });
 
       server.middlewares.use('/api', async (req, res, next) => {
         const routes = {
           '/game/start': '/api/game/start.js',
+          '/game/status': '/api/game/status.js',
           '/game/finish': '/api/game/finish.js',
           '/game/claim': '/api/game/claim.js',
           '/coupon/redeem': '/api/coupon/redeem.js',

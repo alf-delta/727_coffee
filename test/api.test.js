@@ -6,13 +6,14 @@ process.env.REWARD_TOKEN_SECRET = 'test-secret-do-not-use-in-prod';
 process.env.COUPON_STAFF_PIN = '2468';
 
 import startHandler from '../api/game/start.js';
+import gameStatusHandler from '../api/game/status.js';
 import finishHandler from '../api/game/finish.js';
 import claimHandler from '../api/game/claim.js';
 import redeemCouponHandler from '../api/coupon/redeem.js';
 import couponStatusHandler from '../api/coupon/status.js';
 
-function mockReq({ uid, variant, body }) {
-  const cookie = [uid ? `mb_uid=${uid}` : null, variant ? `mb_variant=${variant}` : null].filter(Boolean).join('; ');
+function mockReq({ uid, body }) {
+  const cookie = uid ? `mb_uid=${uid}` : '';
   return { method: 'POST', headers: { cookie }, body };
 }
 
@@ -34,7 +35,13 @@ function mockRes() {
 
 async function startGame(uid, game) {
   const res = mockRes();
-  await startHandler(mockReq({ uid, variant: game, body: { game } }), res);
+  await startHandler(mockReq({ uid, body: { game } }), res);
+  return res;
+}
+
+async function getGameStatus(uid) {
+  const res = mockRes();
+  await gameStatusHandler(mockReq({ uid }), res);
   return res;
 }
 
@@ -83,12 +90,39 @@ test('api: daily limit blocks the 4th attempt', async () => {
   assert.equal(last.jsonBody.error, 'daily_limit_reached');
 });
 
-test('api: wrong variant is rejected', async () => {
+test('api: the first game started is locked for the rest of the day', async () => {
   const uid = randomUUID();
-  const res = mockRes();
-  await startHandler(mockReq({ uid, variant: 'flappy', body: { game: 'tap' } }), res);
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.jsonBody.error, 'wrong_variant');
+  const first = await startGame(uid, 'flappy');
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.jsonBody.selectedGame, 'flappy');
+
+  const otherGame = await startGame(uid, 'tap');
+  assert.equal(otherGame.statusCode, 403);
+  assert.equal(otherGame.jsonBody.error, 'daily_game_locked');
+  assert.equal(otherGame.jsonBody.selectedGame, 'flappy');
+});
+
+test('api: game status offers a choice once and reports tomorrow after three starts', async () => {
+  const uid = randomUUID();
+
+  const fresh = await getGameStatus(uid);
+  assert.equal(fresh.statusCode, 200);
+  assert.equal(fresh.jsonBody.selectedGame, null);
+  assert.equal(fresh.jsonBody.canChoose, true);
+  assert.equal(fresh.jsonBody.attemptsRemainingToday, 3);
+  assert.equal(fresh.jsonBody.exhausted, false);
+
+  for (let i = 0; i < 3; i += 1) {
+    const start = await startGame(uid, 'tap');
+    assert.equal(start.statusCode, 200);
+  }
+
+  const exhausted = await getGameStatus(uid);
+  assert.equal(exhausted.statusCode, 200);
+  assert.equal(exhausted.jsonBody.selectedGame, 'tap');
+  assert.equal(exhausted.jsonBody.attemptsRemainingToday, 0);
+  assert.equal(exhausted.jsonBody.canChoose, false);
+  assert.equal(exhausted.jsonBody.exhausted, true);
 });
 
 test('api: a player can claim the current best result before using all attempts', async () => {
