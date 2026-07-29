@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vercel/
+.env
+.env.local
+.DS_Store
+
+# Original upload copies; the web-ready copies live in public/social/.
+/reel_*.mp4

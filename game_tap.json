@@ -1,0 +1,880 @@
+{
+"project": {
+"name": "Monoblend Tap Pressure",
+"version": "1.0.0",
+"type": "mobile_web_tapping_game",
+"brand": "Monoblend Coffee",
+"objective": "Игрок в течение ограниченного времени набирает и удерживает скорость тапов. Итоговая скидка зависит от скорости, стабильности ритма, продолжительности удержания высокой скорости и результатов антибот-проверок.",
+"primary_reward": {
+"type": "discount_percent",
+"minimum_percent": 3,
+"maximum_percent": 25
+}
+},
+"game_session": {
+"countdown_seconds": 3,
+"active_duration_ms": 6000,
+"scoring_duration_ms": 5000,
+"warmup_duration_ms": 1000,
+"result_animation_duration_ms": 2500,
+"maximum_attempts_per_user_per_day": 3,
+"rewarded_attempts_per_user_per_day": 1,
+"practice_attempts_after_reward": true,
+"rules": {
+"warmup_affects_visual_speedometer": true,
+"warmup_affects_final_discount": false,
+"score_window_starts_after_ms": 1000,
+"score_window_ends_at_ms": 6000,
+"discount_is_based_on_best_single_session": false,
+"discount_is_based_on_current_session_only": true
+}
+},
+"input": {
+"supported_events": [
+"pointerdown",
+"pointerup"
+],
+"preferred_browser_api": "Pointer Events API",
+"fallback_browser_api": "Touch Events API",
+"accepted_pointer_types": [
+"touch",
+"pen",
+"mouse"
+],
+"primary_pointer_only": true,
+"multi_touch_allowed": false,
+"tap_definition": {
+"requires_pointer_down": true,
+"requires_pointer_up": true,
+"maximum_press_duration_ms": 350,
+"maximum_pointer_movement_px": 35,
+"must_end_inside_active_area": true
+},
+"active_area": {
+"minimum_width_css_px": 240,
+"minimum_height_css_px": 240,
+"recommended_screen_coverage_percent": 65,
+"disable_text_selection": true,
+"disable_context_menu": true,
+"disable_double_tap_zoom": true,
+"touch_action": "none"
+}
+},
+"tap_rate_limits": {
+"hard_maximum_valid_taps_per_second": 12,
+"minimum_interval_between_counted_taps_ms": 83.333,
+"interval_rounding_tolerance_ms": 3,
+"maximum_counted_taps_per_rolling_window": {
+"window_ms": 1000,
+"maximum_taps": 12
+},
+"secondary_rolling_window": {
+"window_ms": 500,
+"maximum_taps": 6
+},
+"burst_window": {
+"window_ms": 250,
+"maximum_taps": 3
+},
+"behavior_when_limit_exceeded": {
+"count_excess_tap": false,
+"increase_speedometer": false,
+"show_warning": false,
+"register_security_event": true,
+"security_event_name": "tap_rate_limit_exceeded"
+},
+"visual_behavior": {
+"speedometer_maximum_displayed_tps": 12,
+"needle_does_not_move_above_limit": true,
+"needle_soft_bounce_at_limit": true
+}
+},
+"signal_processing": {
+"event_timestamp_source_priority": [
+"event.timeStamp",
+"performance.now"
+],
+"ignore_date_now_for_precision": true,
+"tap_intervals": {
+"calculation": "interval_ms = current_valid_tap_timestamp_ms - previous_valid_tap_timestamp_ms",
+"minimum_samples_for_stability": 4,
+"maximum_samples_retained": 40
+},
+"rolling_speed": {
+"primary_window_ms": 750,
+"secondary_window_ms": 1500,
+"primary_weight": 0.7,
+"secondary_weight": 0.3,
+"formula": "raw_tps = 0.7 * taps_in_last_750ms / 0.75 + 0.3 * taps_in_last_1500ms / 1.5",
+"maximum_raw_tps": 12,
+"minimum_raw_tps": 0
+},
+"speed_smoothing": {
+"method": "exponential_moving_average",
+"alpha_acceleration": 0.38,
+"alpha_deceleration": 0.24,
+"formula": "smoothed_tps = alpha * raw_tps + (1 - alpha) * previous_smoothed_tps",
+"reason": "Быстрый разгон ощущается отзывчивым, а падение стрелки остается плавным, но не позволяет сохранять результат после остановки."
+},
+"inactivity_decay": {
+"starts_after_ms_without_tap": 180,
+"decay_per_second_tps": 7.5,
+"reset_to_zero_after_ms": 900
+}
+},
+"performance_metrics": {
+"speed_score": {
+"description": "Оценка скорости с прогрессивным усложнением верхней части шкалы.",
+"input": "smoothed_tps",
+"output_range": [
+0,
+1
+],
+"curve": [
+{
+"tps": 0,
+"score": 0
+},
+{
+"tps": 3,
+"score": 0.1
+},
+{
+"tps": 4,
+"score": 0.2
+},
+{
+"tps": 5,
+"score": 0.34
+},
+{
+"tps": 6,
+"score": 0.49
+},
+{
+"tps": 7,
+"score": 0.64
+},
+{
+"tps": 8,
+"score": 0.76
+},
+{
+"tps": 9,
+"score": 0.85
+},
+{
+"tps": 10,
+"score": 0.92
+},
+{
+"tps": 11,
+"score": 0.97
+},
+{
+"tps": 12,
+"score": 1
+}
+],
+"interpolation": "monotonic_cubic_or_linear",
+"important_rule": "Скорость выше 9 TPS дает все меньший прирост. Это не позволяет одному короткому всплеску автоматически открыть максимальную скидку."
+},
+"rhythm_stability": {
+"description": "Измеряет равномерность временных интервалов между тапами.",
+"evaluation_window_ms": 2000,
+"maximum_intervals": 20,
+"metric": "coefficient_of_variation",
+"formula": "cv = standard_deviation(intervals_ms) / mean(intervals_ms)",
+"score_curve": [
+{
+"cv_max": 0.08,
+"score": 1
+},
+{
+"cv_max": 0.12,
+"score": 0.97
+},
+{
+"cv_max": 0.18,
+"score": 0.9
+},
+{
+"cv_max": 0.25,
+"score": 0.78
+},
+{
+"cv_max": 0.35,
+"score": 0.6
+},
+{
+"cv_max": 0.5,
+"score": 0.35
+},
+{
+"cv_max": 1,
+"score": 0.1
+}
+],
+"minimum_score_before_enough_samples": 0.75,
+"minimum_intervals_for_full_score": 6,
+"outlier_handling": {
+"method": "winsorization",
+"lower_percentile": 0.05,
+"upper_percentile": 0.95
+}
+},
+"continuity_score": {
+"description": "Штрафует остановки и резкие провалы скорости.",
+"evaluation_period_ms": 5000,
+"sample_interval_ms": 100,
+"target_floor_ratio": 0.72,
+"formula": "continuity_score = samples_above_72_percent_of_session_peak / total_samples",
+"minimum_peak_tps_for_evaluation": 5,
+"score_floor": 0.35,
+"score_ceiling": 1
+},
+"high_speed_hold": {
+"description": "Определяет, насколько долго игрок удерживал высокий темп, а не просто коснулся его.",
+"thresholds": [
+{
+"tps": 7,
+"required_hold_ms": 700
+},
+{
+"tps": 8,
+"required_hold_ms": 850
+},
+{
+"tps": 9,
+"required_hold_ms": 1000
+},
+{
+"tps": 10,
+"required_hold_ms": 1200
+},
+{
+"tps": 11,
+"required_hold_ms": 1400
+}
+],
+"allowed_gap_inside_hold_ms": 180,
+"calculation": "Суммируется непрерывное время, в течение которого smoothed_tps остается выше порога. Короткие провалы продолжительностью до allowed_gap_inside_hold_ms не сбрасывают серию полностью.",
+"output_range": [
+0,
+1
+]
+},
+"acceleration_quality": {
+"description": "Не дает получить высокий результат за один поздний случайный всплеск.",
+"minimum_time_to_reach_6_tps_ms": 1800,
+"ideal_time_to_reach_6_tps_ms": 800,
+"minimum_time_remaining_after_peak_ms": 700,
+"weight": 0.08
+}
+},
+"final_score": {
+"output_range": [
+0,
+100
+],
+"components": {
+"speed_score_weight": 0.5,
+"rhythm_stability_weight": 0.22,
+"continuity_score_weight": 0.13,
+"high_speed_hold_weight": 0.15
+},
+"base_formula": "base_score = 100 * (0.50 * speed_score + 0.22 * rhythm_stability + 0.13 * continuity_score + 0.15 * high_speed_hold)",
+"multipliers": {
+"late_peak_penalty": {
+"condition": "session_peak_is_reached_with_less_than_700ms_remaining",
+"multiplier": 0.92
+},
+"unstable_high_speed_penalty": {
+"condition": "average_tps_above_8 AND rhythm_stability_below_0.65",
+"multiplier": 0.88
+},
+"insufficient_hold_penalty": {
+"condition": "peak_tps_above_9 AND hold_above_9_tps_below_500ms",
+"multiplier": 0.9
+},
+"security_suspicion_penalty": {
+"condition": "security_risk_score_between_40_and_69",
+"multiplier": 0.75
+}
+},
+"maximum_score_without_requirements": [
+{
+"condition": "rhythm_stability_below_0.75",
+"maximum_score": 82
+},
+{
+"condition": "hold_above_8_tps_below_700ms",
+"maximum_score": 84
+},
+{
+"condition": "average_scoring_tps_below_7",
+"maximum_score": 76
+},
+{
+"condition": "continuity_score_below_0.7",
+"maximum_score": 80
+}
+],
+"rounding": {
+"internal_precision_decimal_places": 4,
+"displayed_score_decimal_places": 0
+}
+},
+"discount_mapping": {
+"method": "threshold_bands",
+"principle": "Верхние проценты требуют непропорционально большего мастерства. Разница между 10% и 15% доступна большинству игроков, а между 22% и 25% требует высокой скорости, стабильности и удержания.",
+"bands": [
+{
+"minimum_score": 0,
+"maximum_score_exclusive": 18,
+"discount_percent": 3
+},
+{
+"minimum_score": 18,
+"maximum_score_exclusive": 30,
+"discount_percent": 5
+},
+{
+"minimum_score": 30,
+"maximum_score_exclusive": 40,
+"discount_percent": 7
+},
+{
+"minimum_score": 40,
+"maximum_score_exclusive": 50,
+"discount_percent": 9
+},
+{
+"minimum_score": 50,
+"maximum_score_exclusive": 59,
+"discount_percent": 11
+},
+{
+"minimum_score": 59,
+"maximum_score_exclusive": 67,
+"discount_percent": 13
+},
+{
+"minimum_score": 67,
+"maximum_score_exclusive": 74,
+"discount_percent": 15
+},
+{
+"minimum_score": 74,
+"maximum_score_exclusive": 80,
+"discount_percent": 17
+},
+{
+"minimum_score": 80,
+"maximum_score_exclusive": 85,
+"discount_percent": 19
+},
+{
+"minimum_score": 85,
+"maximum_score_exclusive": 89,
+"discount_percent": 20
+},
+{
+"minimum_score": 89,
+"maximum_score_exclusive": 92,
+"discount_percent": 21
+},
+{
+"minimum_score": 92,
+"maximum_score_exclusive": 95,
+"discount_percent": 22
+},
+{
+"minimum_score": 95,
+"maximum_score_exclusive": 97,
+"discount_percent": 23
+},
+{
+"minimum_score": 97,
+"maximum_score_exclusive": 99,
+"discount_percent": 24
+},
+{
+"minimum_score": 99,
+"maximum_score_exclusive": 101,
+"discount_percent": 25
+}
+],
+"maximum_discount_requirements": {
+"minimum_final_score": 99,
+"minimum_average_scoring_tps": 8.7,
+"minimum_peak_smoothed_tps": 9.5,
+"minimum_rhythm_stability_score": 0.9,
+"minimum_continuity_score": 0.86,
+"minimum_hold_above_8_tps_ms": 1800,
+"minimum_hold_above_9_tps_ms": 900,
+"maximum_security_risk_score": 15,
+"all_conditions_required": true
+},
+"discount_24_requirements": {
+"minimum_final_score": 97,
+"minimum_average_scoring_tps": 8.3,
+"minimum_rhythm_stability_score": 0.84,
+"minimum_hold_above_8_tps_ms": 1300
+},
+"discount_23_requirements": {
+"minimum_final_score": 95,
+"minimum_average_scoring_tps": 7.9,
+"minimum_rhythm_stability_score": 0.78
+},
+"fallback_rule": "Если итоговый балл попадает в диапазон высокой скидки, но дополнительные требования диапазона не выполнены, скидка понижается до максимального диапазона, требованиям которого соответствует игрок."
+},
+"anti_bot": {
+"enabled": true,
+"security_risk_score_range": [
+0,
+100
+],
+"hard_rejection_threshold": 70,
+"manual_review_threshold": 40,
+"rules": [
+{
+"id": "rate_over_12_tps",
+"description": "Более 12 попыток засчитанного тапа в любом скользящем окне 1 секунды.",
+"risk_points": 35,
+"hard_block_after_occurrences": 3
+},
+{
+"id": "sub_83ms_intervals",
+"description": "Повторяющиеся интервалы короче физического лимита.",
+"condition": "three_or_more_intervals_below_83.333ms",
+"risk_points": 25
+},
+{
+"id": "machine_like_regular_intervals",
+"description": "Подозрительно одинаковые интервалы, характерные для автоматизации.",
+"condition": "at_least_12_intervals AND interval_standard_deviation_below_2.5ms",
+"risk_points": 35
+},
+{
+"id": "repeating_interval_pattern",
+"description": "Повторяющийся цифровой паттерн интервалов.",
+"condition": "same_sequence_of_3_or_more_intervals_repeats_at_least_4_times_with_tolerance_2ms",
+"risk_points": 25
+},
+{
+"id": "multi_pointer_input",
+"description": "Одновременно обнаружено более одного активного указателя.",
+"risk_points": 20,
+"count_secondary_taps": false
+},
+{
+"id": "synthetic_event",
+"description": "Браузер пометил событие как неинициированное пользователем.",
+"condition": "event.isTrusted_is_false",
+"risk_points": 100,
+"immediate_rejection": true
+},
+{
+"id": "impossible_press_duration",
+"description": "Серия слишком коротких и одинаковых down-up циклов.",
+"condition": "at_least_8_press_durations_below_12ms",
+"risk_points": 30
+},
+{
+"id": "background_input",
+"description": "Тапы поступают, когда вкладка или приложение неактивны.",
+"condition": "document.visibilityState_is_not_visible",
+"risk_points": 100,
+"immediate_rejection": true
+},
+{
+"id": "timestamp_discontinuity",
+"description": "Временные метки событий идут назад или имеют невозможные скачки.",
+"risk_points": 40
+},
+{
+"id": "identical_session_replay",
+"description": "Несколько попыток содержат практически идентичную последовательность интервалов.",
+"condition": "interval_sequence_similarity_above_0.995_across_sessions",
+"risk_points": 60
+}
+],
+"response": {
+"risk_score_0_to_39": {
+"session_valid": true,
+"reward_allowed": true
+},
+"risk_score_40_to_69": {
+"session_valid": true,
+"reward_allowed": true,
+"score_multiplier": 0.75,
+"log_for_analysis": true
+},
+"risk_score_70_to_99": {
+"session_valid": false,
+"reward_allowed": false,
+"user_message": "We couldn't verify this attempt. Please try again using one finger."
+},
+"risk_score_100": {
+"session_valid": false,
+"reward_allowed": false,
+"temporary_session_block_minutes": 30
+}
+},
+"server_validation": {
+"required_for_reward": true,
+"send_raw_event_timestamps": true,
+"send_pointer_ids": true,
+"send_press_durations": true,
+"send_visibility_changes": true,
+"send_client_summary": true,
+"recalculate_score_on_server": true,
+"client_result_is_not_authoritative": true,
+"maximum_payload_events": 100,
+"request_signature_required": true,
+"session_nonce_required": true,
+"nonce_single_use": true,
+"maximum_session_age_seconds": 60
+}
+},
+"speedometer": {
+"minimum_display_value": 0,
+"maximum_display_value": 25,
+"display_unit": "discount_percent",
+"internal_driver": "live_projected_discount",
+"needle_behavior": {
+"updates_per_second": 60,
+"maximum_visual_acceleration_percent_per_second": 32,
+"maximum_visual_deceleration_percent_per_second": 18,
+"idle_return_delay_ms": 180,
+"spring_effect": true,
+"spring_strength": 0.12,
+"damping": 0.78
+},
+"live_projection": {
+"description": "Во время игры стрелка показывает предварительную скидку, рассчитанную по текущей скорости и стабильности, но не гарантирует итоговый результат.",
+"formula": "projected_score = current_speed_component * 0.62 + current_stability_component * 0.23 + current_hold_component * 0.15",
+"maximum_live_display_before_final_second": 24,
+"allow_live_25_percent": false,
+"reason": "25% показывается только после серверной проверки, чтобы максимальный результат не выглядел достигнутым слишком легко."
+},
+"zones": [
+{
+"from_percent": 0,
+"to_percent": 5,
+"label": "WARMING UP"
+},
+{
+"from_percent": 5,
+"to_percent": 10,
+"label": "BUILDING PRESSURE"
+},
+{
+"from_percent": 10,
+"to_percent": 15,
+"label": "DIALED IN"
+},
+{
+"from_percent": 15,
+"to_percent": 20,
+"label": "FULL PRESSURE"
+},
+{
+"from_percent": 20,
+"to_percent": 24,
+"label": "REDLINE"
+},
+{
+"from_percent": 24,
+"to_percent": 25,
+"label": "PERFECT SHOT"
+}
+]
+},
+"reward_distribution_targets": {
+"description": "Целевое распределение среди реальных уникальных игроков после периода калибровки.",
+"target_ranges": [
+{
+"discount_range": "3-7%",
+"target_share_percent": {
+"minimum": 10,
+"maximum": 20
+}
+},
+{
+"discount_range": "8-13%",
+"target_share_percent": {
+"minimum": 35,
+"maximum": 45
+}
+},
+{
+"discount_range": "14-18%",
+"target_share_percent": {
+"minimum": 25,
+"maximum": 35
+}
+},
+{
+"discount_range": "19-21%",
+"target_share_percent": {
+"minimum": 8,
+"maximum": 15
+}
+},
+{
+"discount_range": "22-23%",
+"target_share_percent": {
+"minimum": 2,
+"maximum": 6
+}
+},
+{
+"discount_range": "24%",
+"target_share_percent": {
+"minimum": 0.5,
+"maximum": 2
+}
+},
+{
+"discount_range": "25%",
+"target_share_percent": {
+"minimum": 0.1,
+"maximum": 0.8
+}
+}
+],
+"desired_median_discount_percent": 13,
+"desired_average_discount_percent": {
+"minimum": 12,
+"maximum": 15
+},
+"maximum_acceptable_25_percent_share": 1
+},
+"adaptive_calibration": {
+"enabled": true,
+"automatic_live_changes_enabled": false,
+"calibration_period_unique_sessions": 500,
+"minimum_unique_users_before_adjustment": 200,
+"review_frequency": "weekly",
+"parameters_allowed_to_change": [
+"discount_mapping.band_thresholds",
+"maximum_discount_requirements",
+"rhythm_stability.score_curve",
+"high_speed_hold.required_hold_ms"
+],
+"parameters_not_allowed_to_change": [
+"hard_maximum_valid_taps_per_second",
+"minimum_interval_between_counted_taps_ms",
+"maximum_discount_percent",
+"anti_bot.synthetic_event_rule"
+],
+"adjustment_rules": [
+{
+"condition": "share_of_25_percent_results_above_1_percent",
+"action": "increase_25_percent_minimum_score_by_0.5_and_increase_hold_above_9_tps_by_100ms",
+"maximum_single_adjustment": 1
+},
+{
+"condition": "share_of_25_percent_results_below_0.1_percent_after_1000_valid_sessions",
+"action": "decrease_25_percent_minimum_score_by_0.5_or_reduce_hold_requirement_by_100ms",
+"maximum_single_adjustment": 1
+},
+{
+"condition": "median_discount_above_15_percent",
+"action": "shift_score_thresholds_for_discounts_15_percent_and_above_up_by_1_point"
+},
+{
+"condition": "median_discount_below_11_percent",
+"action": "shift_score_thresholds_for_discounts_7_to_17_percent_down_by_1_point"
+}
+],
+"fairness_segments_to_monitor": [
+"ios_60hz",
+"ios_120hz",
+"android_60hz",
+"android_90hz",
+"android_120hz",
+"mobile_safari",
+"chrome_android",
+"instagram_in_app_browser",
+"device_age_under_3_years",
+"device_age_over_3_years"
+],
+"maximum_allowed_median_score_difference_between_device_segments": 4,
+"device_compensation": {
+"enabled": false,
+"rule": "Компенсация может быть добавлена только после подтвержденного статистического различия не менее чем на 4 балла при выборке от 200 валидных сессий на сегмент.",
+"maximum_compensation_score_points": 3
+}
+},
+"reward_redemption": {
+"reward_token": {
+"generated_server_side": true,
+"single_use": true,
+"expires_after_minutes": 20,
+"bound_to_session_id": true,
+"bound_to_discount_percent": true,
+"qr_code_supported": true
+},
+"cashier_validation": {
+"required": true,
+"display_original_session_time": true,
+"display_discount_percent": true,
+"display_redeemed_status": true
+},
+"restrictions": {
+"cannot_combine_with_other_discounts": true,
+"one_reward_per_transaction": true,
+"one_reward_per_user_per_day": true,
+"minimum_purchase_amount_usd": 5,
+"maximum_discount_value_usd": 10
+}
+},
+"analytics": {
+"events": [
+"game_opened",
+"game_started",
+"tap_registered",
+"tap_rejected_rate_limit",
+"multi_touch_detected",
+"game_completed",
+"game_invalidated",
+"reward_generated",
+"reward_redeemed",
+"reward_expired"
+],
+"session_metrics": [
+"raw_tap_count",
+"valid_tap_count",
+"rejected_tap_count",
+"average_tps",
+"peak_raw_tps",
+"peak_smoothed_tps",
+"interval_mean_ms",
+"interval_standard_deviation_ms",
+"rhythm_stability_score",
+"continuity_score",
+"hold_above_7_tps_ms",
+"hold_above_8_tps_ms",
+"hold_above_9_tps_ms",
+"security_risk_score",
+"final_score",
+"discount_percent",
+"device_platform",
+"browser",
+"screen_refresh_rate_if_available",
+"viewport_size"
+],
+"privacy": {
+"store_raw_timestamps_days": 30,
+"store_aggregated_metrics_days": 365,
+"do_not_store_touch_coordinates_after_validation": true,
+"do_not_use_fingerprinting_for_identity": true
+}
+},
+"acceptance_tests": [
+{
+"id": "normal_average_player",
+"input": {
+"average_tps": 5.5,
+"rhythm_stability_score": 0.75,
+"continuity_score": 0.75
+},
+"expected_discount_range_percent": [
+9,
+15
+]
+},
+{
+"id": "fast_but_unstable_player",
+"input": {
+"average_tps": 8.5,
+"rhythm_stability_score": 0.5,
+"hold_above_8_tps_ms": 400
+},
+"expected_maximum_discount_percent": 20
+},
+{
+"id": "stable_skilled_player",
+"input": {
+"average_tps": 8.2,
+"rhythm_stability_score": 0.87,
+"continuity_score": 0.88,
+"hold_above_8_tps_ms": 1500
+},
+"expected_discount_range_percent": [
+21,
+24
+]
+},
+{
+"id": "maximum_legitimate_result",
+"input": {
+"average_tps": 9,
+"peak_smoothed_tps": 10,
+"rhythm_stability_score": 0.93,
+"continuity_score": 0.9,
+"hold_above_8_tps_ms": 2000,
+"hold_above_9_tps_ms": 1000,
+"security_risk_score": 0
+},
+"expected_discount_percent": 25
+},
+{
+"id": "short_late_burst",
+"input": {
+"average_tps": 6.5,
+"peak_smoothed_tps": 10,
+"hold_above_9_tps_ms": 250,
+"peak_reached_with_ms_remaining": 300
+},
+"expected_maximum_discount_percent": 19
+},
+{
+"id": "rate_limit",
+"input": {
+"attempted_tps": 18
+},
+"expected_counted_tps": 12,
+"expected_security_event": "tap_rate_limit_exceeded"
+},
+{
+"id": "synthetic_events",
+"input": {
+"event_is_trusted": false
+},
+"expected_session_valid": false,
+"expected_reward_allowed": false
+},
+{
+"id": "two_finger_input",
+"input": {
+"simultaneous_pointer_count": 2
+},
+"expected_secondary_pointer_counted": false,
+"expected_security_risk_increase": true
+}
+],
+"implementation_priority": {
+"phase_1_must_have": [
+"Pointer Events input",
+"12 TPS rolling limiter",
+"one active pointer restriction",
+"speed smoothing",
+"rhythm stability calculation",
+"high-speed hold calculation",
+"server-side score recalculation",
+"single-use reward token",
+"basic analytics"
+],
+"phase_2_should_have": [
+"cross-session replay detection",
+"adaptive calibration dashboard",
+"device segment comparison",
+"advanced speedometer animation",
+"QR redemption"
+]
+}
+}

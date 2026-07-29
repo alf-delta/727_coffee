@@ -1,0 +1,1165 @@
+{
+"project": {
+"name": "Monoblend Flying Syrnik",
+"version": "1.0.0",
+"type": "mobile_web_arcade_game",
+"brand": "Monoblend Coffee",
+"core_reference": "Flappy Bird-style one-touch obstacle game",
+"objective": "Игрок управляет летящим сырником, проходит через препятствия и набирает скидку. Максимальная скидка 25% должна быть редким достижением и зависеть от дистанции, серии чистых прохождений, точности, стабильности управления и отсутствия подозрительных событий.",
+"primary_reward": {
+"type": "discount_percent",
+"minimum_percent": 3,
+"maximum_percent": 25
+},
+"theme": {
+"main_character": "flying_syrnik",
+"world": "stylized_chelsea_coffee_world",
+"visual_direction": "premium, playful, absurd, polished, not childish",
+"obstacle_examples": [
+"forks",
+"espresso_machine_groups",
+"coffee_cups",
+"steam_clouds",
+"pigeons",
+"milk_pitchers",
+"croissant_arches",
+"new_york_signage"
+]
+}
+},
+"game_session": {
+"countdown_seconds": 3,
+"maximum_active_duration_seconds": 45,
+"minimum_rewardable_duration_seconds": 3,
+"maximum_attempts_per_user_per_day": 3,
+"rewarded_attempts_per_user_per_day": 1,
+"practice_attempts_after_reward": true,
+"start_behavior": {
+"first_tap_starts_game": true,
+"first_tap_also_applies_impulse": true,
+"auto_start_after_countdown": false
+},
+"end_conditions": [
+"character_collision",
+"character_falls_below_play_area",
+"character_exits_top_boundary",
+"maximum_duration_reached",
+"session_invalidated"
+]
+},
+"input": {
+"supported_events": [
+"pointerdown"
+],
+"preferred_browser_api": "Pointer Events API",
+"fallback_browser_api": "Touch Events API",
+"primary_pointer_only": true,
+"multi_touch_allowed": false,
+"tap_behavior": {
+"one_valid_pointerdown_equals_one_flap": true,
+"pointerup_not_required_for_flap": true,
+"minimum_interval_between_flaps_ms": 90,
+"maximum_valid_flaps_per_second": 10,
+"ignore_secondary_pointers": true
+},
+"active_area": {
+"full_game_canvas_is_tappable": true,
+"disable_text_selection": true,
+"disable_context_menu": true,
+"disable_double_tap_zoom": true,
+"touch_action": "none"
+}
+},
+"world": {
+"coordinate_system": {
+"design_width_units": 390,
+"design_height_units": 844,
+"scale_mode": "fit_height_with_safe_horizontal_crop",
+"physics_use_normalized_units": true
+},
+"camera": {
+"horizontal_scroll": true,
+"vertical_scroll": false,
+"camera_speed_is_world_speed": true,
+"character_horizontal_position_percent": 30
+},
+"play_area": {
+"top_safe_margin_percent": 8,
+"bottom_safe_margin_percent": 12,
+"minimum_visible_height_percent": 75
+}
+},
+"character_physics": {
+"character": {
+"collision_shape": "circle",
+"collision_radius_percent_of_sprite_width": 34,
+"visual_sprite_width_percent_of_viewport": 14,
+"rotation_enabled": true
+},
+"gravity": {
+"initial_normalized_units_per_second_squared": 2.35,
+"maximum_normalized_units_per_second_squared": 2.75
+},
+"flap_impulse": {
+"initial_vertical_velocity_units_per_second": -0.72,
+"minimum_vertical_velocity_after_flap": -0.72,
+"maximum_vertical_velocity_after_flap": -0.58,
+"stacking_allowed": false,
+"rule": "Каждый валидный тап устанавливает вертикальную скорость в заданное отрицательное значение, а не бесконечно добавляет импульс."
+},
+"vertical_velocity": {
+"maximum_fall_speed_units_per_second": 1.15,
+"maximum_rise_speed_units_per_second": -0.8
+},
+"rotation": {
+"maximum_upward_angle_degrees": -24,
+"maximum_downward_angle_degrees": 78,
+"rotation_response_seconds": 0.18
+},
+"frame_independence": {
+"required": true,
+"simulation_step": "fixed_timestep",
+"fixed_step_hz": 120,
+"maximum_catchup_steps_per_frame": 8,
+"interpolation_for_rendering": true,
+"rule": "Физика не должна зависеть от частоты экрана 60, 90 или 120 Гц."
+}
+},
+"obstacles": {
+"structure": {
+"type": "paired_vertical_obstacles",
+"passage_gap_between_obstacles": true,
+"scoring_line_at_obstacle_center": true
+},
+"spawn": {
+"initial_delay_ms": 1200,
+"initial_horizontal_spacing_viewport_widths": 0.82,
+"minimum_horizontal_spacing_viewport_widths": 0.62,
+"random_spacing_variation_percent": 8,
+"minimum_obstacles_visible_ahead": 2
+},
+"gap": {
+"initial_gap_percent_of_play_area_height": 30,
+"minimum_gap_percent_of_play_area_height": 20,
+"maximum_gap_percent_of_play_area_height": 32,
+"gap_reduction_per_difficulty_stage_percent": 1.2,
+"minimum_top_or_bottom_clearance_percent": 12,
+"vertical_position_randomization": true,
+"maximum_center_shift_between_consecutive_gaps_percent": 22
+},
+"collision": {
+"pixel_perfect_collision": false,
+"use_simplified_hitboxes": true,
+"visual_hitbox_padding_percent": 8,
+"forgiving_collision_enabled": true,
+"forgiving_collision_pixels_css": 3,
+"collision_is_server_reconstructable": true
+},
+"special_obstacles": {
+"enabled_after_score": 8,
+"maximum_share_of_total_obstacles_percent": 20,
+"types": [
+{
+"id": "moving_fork",
+"vertical_movement": true,
+"movement_amplitude_percent_of_gap": 16,
+"movement_speed_hz": 0.35
+},
+{
+"id": "steam_pulse",
+"visual_distraction_only": true,
+"changes_collision": false
+},
+{
+"id": "double_gate",
+"minimum_score_required": 16,
+"two_gates_close_together": true
+}
+]
+}
+},
+"difficulty": {
+"model": "progressive_stages",
+"difficulty_score_range": [
+0,
+1
+],
+"stages": [
+{
+"stage": 1,
+"starts_at_passed_obstacles": 0,
+"world_speed_multiplier": 1,
+"gap_multiplier": 1,
+"label": "TAKEOFF"
+},
+{
+"stage": 2,
+"starts_at_passed_obstacles": 5,
+"world_speed_multiplier": 1.08,
+"gap_multiplier": 0.95,
+"label": "BREWING"
+},
+{
+"stage": 3,
+"starts_at_passed_obstacles": 10,
+"world_speed_multiplier": 1.16,
+"gap_multiplier": 0.9,
+"label": "DIALED IN"
+},
+{
+"stage": 4,
+"starts_at_passed_obstacles": 16,
+"world_speed_multiplier": 1.25,
+"gap_multiplier": 0.84,
+"label": "FULL PRESSURE"
+},
+{
+"stage": 5,
+"starts_at_passed_obstacles": 23,
+"world_speed_multiplier": 1.34,
+"gap_multiplier": 0.78,
+"label": "REDLINE"
+},
+{
+"stage": 6,
+"starts_at_passed_obstacles": 31,
+"world_speed_multiplier": 1.42,
+"gap_multiplier": 0.72,
+"label": "PERFECT FLIGHT"
+}
+],
+"dynamic_adjustment": {
+"enabled": true,
+"can_make_game_easier_mid_session": false,
+"can_only_increase_difficulty": true,
+"based_on": [
+"passed_obstacles",
+"clean_pass_streak",
+"session_duration"
+],
+"maximum_extra_speed_multiplier": 1.08
+},
+"anti_frustration": {
+"first_three_obstacles_are_never_special": true,
+"first_two_gaps_are_center_biased": true,
+"no_extreme_gap_direction_reversal_before_score": 5,
+"minimum_reaction_time_ms": 620
+}
+},
+"scoring": {
+"primary_metric": "passed_obstacles",
+"secondary_metrics": [
+"clean_passes",
+"center_accuracy",
+"longest_clean_streak",
+"survival_time",
+"input_efficiency"
+],
+"passed_obstacle": {
+"points": 1,
+"condition": "character_center_crosses_scoring_line_without_collision",
+"count_only_once": true
+},
+"clean_pass": {
+"description": "Прохождение ближе к центру ворот без касания forgiving-zone.",
+"center_tolerance_percent_of_gap_height": 22,
+"points": 1
+},
+"perfect_pass": {
+"description": "Прохождение почти точно через центр ворот.",
+"center_tolerance_percent_of_gap_height": 10,
+"points": 1,
+"visual_feedback": true
+},
+"streak": {
+"minimum_clean_passes_to_start": 3,
+"maximum_multiplier": 1.25,
+"multiplier_curve": [
+{
+"clean_streak": 0,
+"multiplier": 1
+},
+{
+"clean_streak": 3,
+"multiplier": 1.04
+},
+{
+"clean_streak": 5,
+"multiplier": 1.08
+},
+{
+"clean_streak": 8,
+"multiplier": 1.13
+},
+{
+"clean_streak": 12,
+"multiplier": 1.18
+},
+{
+"clean_streak": 18,
+"multiplier": 1.25
+}
+],
+"reset_conditions": [
+"non_clean_pass",
+"collision"
+]
+}
+},
+"performance_metrics": {
+"distance_score": {
+"description": "Нелинейная оценка количества пройденных препятствий.",
+"output_range": [
+0,
+1
+],
+"curve": [
+{
+"passed_obstacles": 0,
+"score": 0
+},
+{
+"passed_obstacles": 1,
+"score": 0.08
+},
+{
+"passed_obstacles": 3,
+"score": 0.18
+},
+{
+"passed_obstacles": 5,
+"score": 0.3
+},
+{
+"passed_obstacles": 8,
+"score": 0.44
+},
+{
+"passed_obstacles": 12,
+"score": 0.58
+},
+{
+"passed_obstacles": 16,
+"score": 0.69
+},
+{
+"passed_obstacles": 21,
+"score": 0.79
+},
+{
+"passed_obstacles": 27,
+"score": 0.88
+},
+{
+"passed_obstacles": 34,
+"score": 0.95
+},
+{
+"passed_obstacles": 42,
+"score": 1
+}
+],
+"interpolation": "monotonic_cubic_or_linear"
+},
+"accuracy_score": {
+"description": "Доля ворот, пройденных близко к центру.",
+"formula": "accuracy_score = 0.65 * clean_pass_ratio + 0.35 * perfect_pass_ratio",
+"minimum_passed_obstacles_for_full_weight": 5,
+"score_before_minimum_samples": 0.7
+},
+"streak_score": {
+"description": "Оценка максимальной серии чистых прохождений.",
+"curve": [
+{
+"longest_clean_streak": 0,
+"score": 0
+},
+{
+"longest_clean_streak": 2,
+"score": 0.15
+},
+{
+"longest_clean_streak": 4,
+"score": 0.35
+},
+{
+"longest_clean_streak": 6,
+"score": 0.55
+},
+{
+"longest_clean_streak": 9,
+"score": 0.75
+},
+{
+"longest_clean_streak": 13,
+"score": 0.9
+},
+{
+"longest_clean_streak": 18,
+"score": 1
+}
+]
+},
+"survival_score": {
+"description": "Дополнительная оценка продолжительности сессии.",
+"curve": [
+{
+"survival_seconds": 0,
+"score": 0
+},
+{
+"survival_seconds": 5,
+"score": 0.2
+},
+{
+"survival_seconds": 10,
+"score": 0.42
+},
+{
+"survival_seconds": 15,
+"score": 0.62
+},
+{
+"survival_seconds": 22,
+"score": 0.8
+},
+{
+"survival_seconds": 30,
+"score": 0.92
+},
+{
+"survival_seconds": 40,
+"score": 1
+}
+]
+},
+"input_efficiency_score": {
+"description": "Штрафует бессмысленный спам тапами, но не требует идеального числа нажатий.",
+"formula": "efficiency = expected_flap_count_for_path / max(actual_valid_flap_count, expected_flap_count_for_path)",
+"expected_flap_count_method": "physics_reconstruction",
+"minimum_score": 0.5,
+"maximum_score": 1,
+"spam_threshold_ratio": 1.8
+}
+},
+"final_score": {
+"output_range": [
+0,
+100
+],
+"components": {
+"distance_score_weight": 0.58,
+"accuracy_score_weight": 0.18,
+"streak_score_weight": 0.14,
+"survival_score_weight": 0.07,
+"input_efficiency_score_weight": 0.03
+},
+"base_formula": "base_score = 100 * (0.58 * distance_score + 0.18 * accuracy_score + 0.14 * streak_score + 0.07 * survival_score + 0.03 * input_efficiency_score)",
+"multipliers": {
+"clean_run_bonus": {
+"condition": "clean_pass_ratio_above_0.8 AND passed_obstacles_at_least_12",
+"multiplier": 1.04
+},
+"perfect_streak_bonus": {
+"condition": "longest_clean_streak_at_least_10 AND perfect_pass_ratio_above_0.35",
+"multiplier": 1.03
+},
+"tap_spam_penalty": {
+"condition": "actual_flaps_greater_than_expected_flaps_times_1.8",
+"multiplier": 0.9
+},
+"security_suspicion_penalty": {
+"condition": "security_risk_score_between_40_and_69",
+"multiplier": 0.75
+}
+},
+"score_caps": [
+{
+"condition": "passed_obstacles_below_8",
+"maximum_score": 52
+},
+{
+"condition": "passed_obstacles_below_15",
+"maximum_score": 76
+},
+{
+"condition": "passed_obstacles_below_22",
+"maximum_score": 88
+},
+{
+"condition": "accuracy_score_below_0.6",
+"maximum_score": 84
+},
+{
+"condition": "longest_clean_streak_below_6",
+"maximum_score": 87
+}
+],
+"rounding": {
+"internal_precision_decimal_places": 4,
+"displayed_score_decimal_places": 0
+}
+},
+"discount_mapping": {
+"method": "threshold_bands_with_requirements",
+"principle": "Первые скидки достигаются достаточно быстро, но верхние 22-25% требуют длинной чистой серии и большого количества препятствий.",
+"bands": [
+{
+"minimum_score": 0,
+"maximum_score_exclusive": 16,
+"discount_percent": 3
+},
+{
+"minimum_score": 16,
+"maximum_score_exclusive": 27,
+"discount_percent": 5
+},
+{
+"minimum_score": 27,
+"maximum_score_exclusive": 37,
+"discount_percent": 7
+},
+{
+"minimum_score": 37,
+"maximum_score_exclusive": 47,
+"discount_percent": 9
+},
+{
+"minimum_score": 47,
+"maximum_score_exclusive": 56,
+"discount_percent": 11
+},
+{
+"minimum_score": 56,
+"maximum_score_exclusive": 64,
+"discount_percent": 13
+},
+{
+"minimum_score": 64,
+"maximum_score_exclusive": 71,
+"discount_percent": 15
+},
+{
+"minimum_score": 71,
+"maximum_score_exclusive": 77,
+"discount_percent": 17
+},
+{
+"minimum_score": 77,
+"maximum_score_exclusive": 82,
+"discount_percent": 19
+},
+{
+"minimum_score": 82,
+"maximum_score_exclusive": 86,
+"discount_percent": 20
+},
+{
+"minimum_score": 86,
+"maximum_score_exclusive": 90,
+"discount_percent": 21
+},
+{
+"minimum_score": 90,
+"maximum_score_exclusive": 94,
+"discount_percent": 22
+},
+{
+"minimum_score": 94,
+"maximum_score_exclusive": 97,
+"discount_percent": 23
+},
+{
+"minimum_score": 97,
+"maximum_score_exclusive": 99,
+"discount_percent": 24
+},
+{
+"minimum_score": 99,
+"maximum_score_exclusive": 101,
+"discount_percent": 25
+}
+],
+"discount_25_requirements": {
+"minimum_final_score": 99,
+"minimum_passed_obstacles": 38,
+"minimum_clean_pass_ratio": 0.78,
+"minimum_perfect_pass_ratio": 0.3,
+"minimum_longest_clean_streak": 14,
+"minimum_survival_seconds": 32,
+"minimum_input_efficiency_score": 0.72,
+"maximum_security_risk_score": 15,
+"all_conditions_required": true
+},
+"discount_24_requirements": {
+"minimum_final_score": 97,
+"minimum_passed_obstacles": 32,
+"minimum_clean_pass_ratio": 0.72,
+"minimum_longest_clean_streak": 11
+},
+"discount_23_requirements": {
+"minimum_final_score": 94,
+"minimum_passed_obstacles": 27,
+"minimum_clean_pass_ratio": 0.66,
+"minimum_longest_clean_streak": 8
+},
+"discount_22_requirements": {
+"minimum_final_score": 90,
+"minimum_passed_obstacles": 23,
+"minimum_clean_pass_ratio": 0.6
+},
+"fallback_rule": "Если score попал в высокий диапазон, но дополнительные требования не выполнены, скидка понижается до максимального диапазона, требованиям которого соответствует сессия."
+},
+"anti_bot": {
+"enabled": true,
+"security_risk_score_range": [
+0,
+100
+],
+"hard_rejection_threshold": 70,
+"manual_review_threshold": 40,
+"rules": [
+{
+"id": "flap_rate_over_limit",
+"description": "Более 10 валидных тапов в любом скользящем окне 1 секунды.",
+"risk_points": 25,
+"count_excess_taps": false
+},
+{
+"id": "sub_90ms_intervals",
+"description": "Повторяющиеся интервалы между тапами короче разрешенного лимита.",
+"condition": "three_or_more_intervals_below_90ms",
+"risk_points": 25
+},
+{
+"id": "synthetic_event",
+"description": "Событие не было инициировано реальным пользователем.",
+"condition": "event.isTrusted_is_false",
+"risk_points": 100,
+"immediate_rejection": true
+},
+{
+"id": "multi_pointer_input",
+"description": "Одновременно обнаружено более одного указателя.",
+"risk_points": 20,
+"count_secondary_taps": false
+},
+{
+"id": "machine_regular_input",
+"description": "Подозрительно одинаковые интервалы между тапами.",
+"condition": "at_least_15_intervals AND interval_standard_deviation_below_2.5ms",
+"risk_points": 35
+},
+{
+"id": "repeating_input_sequence",
+"description": "Одинаковый временной паттерн тапов повторяется несколько раз.",
+"condition": "same_sequence_of_4_or_more_intervals_repeats_4_times_with_tolerance_2ms",
+"risk_points": 30
+},
+{
+"id": "impossible_trajectory",
+"description": "Клиент сообщает траекторию, невозможную при утвержденной физике.",
+"condition": "server_reconstructed_position_diff_exceeds_tolerance",
+"risk_points": 100,
+"immediate_rejection": true
+},
+{
+"id": "obstacle_sequence_mismatch",
+"description": "Клиентская последовательность препятствий не соответствует серверному seed.",
+"risk_points": 100,
+"immediate_rejection": true
+},
+{
+"id": "collision_bypass",
+"description": "Клиент продолжил игру после столкновения, подтвержденного серверной реконструкцией.",
+"risk_points": 100,
+"immediate_rejection": true
+},
+{
+"id": "background_play",
+"description": "Тапы или игровая симуляция продолжались в скрытой вкладке.",
+"condition": "document.visibilityState_is_not_visible",
+"risk_points": 100,
+"immediate_rejection": true
+},
+{
+"id": "time_scale_manipulation",
+"description": "Изменение скорости игрового времени или расхождение monotonic timestamps.",
+"condition": "client_elapsed_time_differs_from_server_elapsed_time_above_tolerance",
+"risk_points": 80,
+"immediate_rejection": true
+},
+{
+"id": "identical_session_replay",
+"description": "Несколько сессий имеют идентичные последовательности тапов и прохождения.",
+"condition": "input_sequence_similarity_above_0.995_across_sessions",
+"risk_points": 60
+}
+],
+"response": {
+"risk_score_0_to_39": {
+"session_valid": true,
+"reward_allowed": true
+},
+"risk_score_40_to_69": {
+"session_valid": true,
+"reward_allowed": true,
+"score_multiplier": 0.75,
+"log_for_analysis": true
+},
+"risk_score_70_to_99": {
+"session_valid": false,
+"reward_allowed": false,
+"user_message": "We couldn't verify this flight. Please try again."
+},
+"risk_score_100": {
+"session_valid": false,
+"reward_allowed": false,
+"temporary_session_block_minutes": 30
+}
+},
+"server_validation": {
+"required_for_reward": true,
+"server_generates_session_seed": true,
+"server_generates_obstacle_sequence": true,
+"send_raw_tap_timestamps": true,
+"send_pointer_ids": true,
+"send_visibility_changes": true,
+"send_client_collision_timestamp": true,
+"reconstruct_full_trajectory_on_server": true,
+"recalculate_score_on_server": true,
+"client_result_is_not_authoritative": true,
+"request_signature_required": true,
+"session_nonce_required": true,
+"nonce_single_use": true,
+"maximum_session_age_seconds": 90,
+"physics_version_must_match": true
+}
+},
+"randomization": {
+"method": "seeded_pseudorandom_generator",
+"seed_source": "server",
+"client_receives_seed_after_session_start": true,
+"seed_single_use": true,
+"randomized_elements": [
+"obstacle_gap_vertical_position",
+"obstacle_visual_skin",
+"spacing_variation",
+"special_obstacle_placement",
+"background_decorations"
+],
+"non_randomized_elements": [
+"physics_parameters",
+"difficulty_stage_thresholds",
+"collision_rules",
+"discount_thresholds"
+],
+"fairness_rules": {
+"same_seed_produces_same_game": true,
+"no_impossible_obstacle_sequences": true,
+"minimum_reaction_time_is_enforced": true,
+"maximum_vertical_gap_shift_is_enforced": true
+}
+},
+"user_experience": {
+"start_screen": {
+"title": "FLYING SYRNIK",
+"instruction": "Tap to fly. Pass the gates. Win up to 25% off.",
+"show_maximum_discount": true,
+"show_full_scoring_formula": false,
+"show_one_finger_rule": true
+},
+"during_game": {
+"show_passed_obstacles": true,
+"show_live_discount": true,
+"live_discount_is_projected": true,
+"maximum_live_discount_before_result": 24,
+"show_clean_streak": true,
+"show_timer": false,
+"show_tap_count": false
+},
+"feedback": {
+"valid_flap": [
+"character_animation",
+"subtle_haptic",
+"soft_sound"
+],
+"clean_pass": [
+"small_glow",
+"short_chime",
+"streak_increment"
+],
+"perfect_pass": [
+"gold_ring",
+"stronger_chime",
+"text_perfect"
+],
+"collision": [
+"short_freeze_frame",
+"impact_animation",
+"camera_shake"
+]
+},
+"live_discount_projection": {
+"description": "Показывает ориентировочную скидку по текущей дистанции и серии, но не гарантирует итог до серверной проверки.",
+"maximum_percent": 24,
+"allow_25_before_server_validation": false
+},
+"result_sequence": [
+{
+"time_ms": 0,
+"content": "FLIGHT OVER"
+},
+{
+"time_ms": 500,
+"content": "CALCULATING..."
+},
+{
+"time_ms": 1300,
+"content": "distance_and_streak_summary"
+},
+{
+"time_ms": 1900,
+"content": "final_discount_reveal"
+}
+],
+"result_messages": {
+"3_to_7_percent": [
+"The syrnik survived.",
+"A little more lift next time."
+],
+"8_to_15_percent": [
+"Nice flight.",
+"The kitchen approves."
+],
+"16_to_21_percent": [
+"You found the rhythm.",
+"That syrnik can move."
+],
+"22_to_24_percent": [
+"Chelsea airspace cleared.",
+"Almost a perfect flight."
+],
+"25_percent": [
+"PERFECT FLIGHT",
+"You broke the laws of breakfast."
+]
+}
+},
+"reward_distribution_targets": {
+"description": "Целевое распределение среди валидных уникальных игроков после калибровки.",
+"target_ranges": [
+{
+"discount_range": "3-7%",
+"target_share_percent": {
+"minimum": 20,
+"maximum": 30
+}
+},
+{
+"discount_range": "8-13%",
+"target_share_percent": {
+"minimum": 30,
+"maximum": 40
+}
+},
+{
+"discount_range": "14-18%",
+"target_share_percent": {
+"minimum": 20,
+"maximum": 30
+}
+},
+{
+"discount_range": "19-21%",
+"target_share_percent": {
+"minimum": 8,
+"maximum": 15
+}
+},
+{
+"discount_range": "22-23%",
+"target_share_percent": {
+"minimum": 2,
+"maximum": 6
+}
+},
+{
+"discount_range": "24%",
+"target_share_percent": {
+"minimum": 0.5,
+"maximum": 2
+}
+},
+{
+"discount_range": "25%",
+"target_share_percent": {
+"minimum": 0.1,
+"maximum": 0.6
+}
+}
+],
+"desired_median_discount_percent": 11,
+"desired_average_discount_percent": {
+"minimum": 10,
+"maximum": 14
+},
+"maximum_acceptable_25_percent_share": 0.8
+},
+"adaptive_calibration": {
+"enabled": true,
+"automatic_live_changes_enabled": false,
+"minimum_valid_sessions_before_review": 500,
+"minimum_unique_users_before_review": 200,
+"review_frequency": "weekly",
+"parameters_allowed_to_change": [
+"discount_mapping.band_thresholds",
+"difficulty.stage_world_speed_multipliers",
+"obstacles.gap.minimum_gap_percent",
+"discount_25_requirements",
+"distance_score.curve"
+],
+"parameters_not_allowed_to_change": [
+"physics_during_active_session",
+"server_validation_requirement",
+"maximum_discount_percent",
+"synthetic_event_rejection",
+"seed_validation"
+],
+"adjustment_rules": [
+{
+"condition": "share_of_25_percent_results_above_0.8_percent",
+"action": "increase_25_percent_minimum_passed_obstacles_by_2_and_minimum_clean_streak_by_1"
+},
+{
+"condition": "share_of_25_percent_results_below_0.1_percent_after_1500_valid_sessions",
+"action": "reduce_25_percent_minimum_passed_obstacles_by_1_or_reduce_clean_streak_requirement_by_1"
+},
+{
+"condition": "median_discount_above_14_percent",
+"action": "shift_thresholds_for_15_percent_and_above_up_by_1.5_score_points"
+},
+{
+"condition": "median_discount_below_9_percent",
+"action": "increase_initial_gap_by_2_percent_or_shift_7_to_15_percent_thresholds_down_by_1_score_point"
+},
+{
+"condition": "more_than_45_percent_of_players_fail_before_first_obstacle",
+"action": "increase_first_obstacle_delay_and_first_gap_size"
+}
+],
+"device_segments_to_monitor": [
+"ios_60hz",
+"ios_120hz",
+"android_60hz",
+"android_90hz",
+"android_120hz",
+"mobile_safari",
+"chrome_android",
+"instagram_in_app_browser"
+],
+"maximum_allowed_median_score_difference_between_device_segments": 4
+},
+"reward_redemption": {
+"reward_token": {
+"generated_server_side": true,
+"single_use": true,
+"expires_after_minutes": 20,
+"bound_to_session_id": true,
+"bound_to_discount_percent": true,
+"qr_code_supported": true
+},
+"cashier_validation": {
+"required": true,
+"display_game_name": true,
+"display_original_session_time": true,
+"display_discount_percent": true,
+"display_redeemed_status": true
+},
+"restrictions": {
+"cannot_combine_with_other_discounts": true,
+"one_reward_per_transaction": true,
+"one_reward_per_user_per_day": true,
+"minimum_purchase_amount_usd": 5,
+"maximum_discount_value_usd": 10
+}
+},
+"analytics": {
+"events": [
+"game_opened",
+"game_started",
+"flap_registered",
+"flap_rejected_rate_limit",
+"obstacle_passed",
+"clean_pass",
+"perfect_pass",
+"collision",
+"game_completed",
+"game_invalidated",
+"reward_generated",
+"reward_redeemed",
+"reward_expired"
+],
+"session_metrics": [
+"passed_obstacles",
+"clean_passes",
+"perfect_passes",
+"longest_clean_streak",
+"survival_seconds",
+"valid_flap_count",
+"rejected_flap_count",
+"average_flaps_per_second",
+"input_efficiency_score",
+"distance_score",
+"accuracy_score",
+"streak_score",
+"security_risk_score",
+"final_score",
+"discount_percent",
+"collision_type",
+"difficulty_stage_reached",
+"device_platform",
+"browser",
+"screen_refresh_rate_if_available",
+"viewport_size"
+],
+"privacy": {
+"store_raw_tap_timestamps_days": 30,
+"store_aggregated_metrics_days": 365,
+"do_not_store_touch_coordinates_after_validation": true,
+"do_not_use_fingerprinting_for_identity": true
+}
+},
+"acceptance_tests": [
+{
+"id": "immediate_failure",
+"input": {
+"passed_obstacles": 0,
+"survival_seconds": 1.5
+},
+"expected_discount_range_percent": [
+3,
+5
+]
+},
+{
+"id": "average_player",
+"input": {
+"passed_obstacles": 7,
+"clean_pass_ratio": 0.55,
+"longest_clean_streak": 3,
+"survival_seconds": 9
+},
+"expected_discount_range_percent": [
+9,
+15
+]
+},
+{
+"id": "good_player",
+"input": {
+"passed_obstacles": 17,
+"clean_pass_ratio": 0.7,
+"perfect_pass_ratio": 0.2,
+"longest_clean_streak": 7,
+"survival_seconds": 19
+},
+"expected_discount_range_percent": [
+17,
+21
+]
+},
+{
+"id": "high_distance_low_accuracy",
+"input": {
+"passed_obstacles": 28,
+"clean_pass_ratio": 0.4,
+"longest_clean_streak": 4
+},
+"expected_maximum_discount_percent": 21
+},
+{
+"id": "elite_player",
+"input": {
+"passed_obstacles": 34,
+"clean_pass_ratio": 0.75,
+"perfect_pass_ratio": 0.28,
+"longest_clean_streak": 12,
+"survival_seconds": 31,
+"security_risk_score": 0
+},
+"expected_discount_range_percent": [
+23,
+24
+]
+},
+{
+"id": "maximum_legitimate_result",
+"input": {
+"passed_obstacles": 40,
+"clean_pass_ratio": 0.82,
+"perfect_pass_ratio": 0.34,
+"longest_clean_streak": 15,
+"survival_seconds": 36,
+"input_efficiency_score": 0.8,
+"security_risk_score": 0
+},
+"expected_discount_percent": 25
+},
+{
+"id": "tap_spam",
+"input": {
+"actual_flaps": 100,
+"expected_flaps": 42
+},
+"expected_score_penalty": true,
+"expected_discount_cap_percent": 21
+},
+{
+"id": "synthetic_events",
+"input": {
+"event_is_trusted": false
+},
+"expected_session_valid": false,
+"expected_reward_allowed": false
+},
+{
+"id": "trajectory_tampering",
+"input": {
+"server_reconstruction_matches_client": false
+},
+"expected_session_valid": false,
+"expected_reward_allowed": false
+},
+{
+"id": "two_finger_input",
+"input": {
+"simultaneous_pointer_count": 2
+},
+"expected_secondary_pointer_counted": false,
+"expected_security_risk_increase": true
+}
+],
+"implementation_priority": {
+"phase_1_must_have": [
+"fixed timestep physics",
+"Pointer Events input",
+"seeded obstacle generation",
+"server-side trajectory reconstruction",
+"collision validation",
+"distance and accuracy scoring",
+"discount requirements",
+"single-use reward token",
+"basic analytics"
+],
+"phase_2_should_have": [
+"special obstacles",
+"advanced clean-pass effects",
+"cross-session replay detection",
+"adaptive calibration dashboard",
+"device segment comparison",
+"QR reward redemption",
+"character skins"
+]
+}
+}
