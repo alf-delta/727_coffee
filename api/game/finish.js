@@ -1,13 +1,21 @@
 import { kv } from '../../src/server/kv.js';
 import { parseCookies, readJsonBody } from '../../src/server/request.js';
-import { UID_COOKIE, MAX_ATTEMPTS_PER_DAY } from '../../src/server/config.js';
+import { BASE_ATTEMPTS_PER_DAY, UID_COOKIE } from '../../src/server/config.js';
 import { todayUTC } from '../../src/server/date.js';
-import { claimBestReward, getAttemptsUsed, recordBestResult } from '../../src/server/gameSet.js';
+import {
+  claimBestReward,
+  getAttemptsUsed,
+  getBestResult,
+  recordBestResult,
+} from '../../src/server/gameSet.js';
+import {
+  getPlayerContext,
+  publicContact,
+} from '../../src/server/contactIdentity.js';
+import { deliverRewardToContact } from '../../src/server/couponDelivery.js';
 import { evaluateFlappyRisk, evaluateTapRisk, riskResponse } from '../../src/shared/antiBot.js';
-import { filterValidFlaps, simulateRun } from '../../src/shared/flappyPhysics.js';
-import { computeFlappyResult } from '../../src/shared/flappyScoring.js';
-import { analyzeTapSession } from '../../src/shared/tapPhysics.js';
-import { computeTapResult } from '../../src/shared/tapScoring.js';
+import { computeFlappyProgress } from '../../src/shared/flappyProgress.js';
+import { computeTapProgress } from '../../src/shared/tapProgress.js';
 
 function resultMismatch(claimed, authoritative, field, tolerance = 1) {
   if (claimed == null || authoritative == null) return false;
@@ -58,21 +66,28 @@ export default async function handler(req, res) {
   let sessionSummary;
 
   if (attempt.game === 'flappy') {
-    const validFlaps = filterValidFlaps(taps, pointerIds);
-    const authoritative = simulateRun(attempt.seed, validFlaps, attempt.maxDurationMs);
+    const progress = computeFlappyProgress({
+      seed: attempt.seed,
+      tapTimestampsMs: taps,
+      pointerIds,
+      durationMs: attempt.maxDurationMs,
+    });
+    const authoritative = progress.metrics;
     const mismatch = resultMismatch(body.clientClaimedResult?.passedObstacles, authoritative.passedObstacles, 'passedObstacles');
     risk = evaluateFlappyRisk({ tapTimestampsMs: taps, isTrustedFlags, pointerIds, visibilityEvents, clientElapsedMs, serverElapsedMs, resultMismatch: mismatch });
-    scoring = computeFlappyResult({ ...authoritative, securityRiskScore: risk.riskScore });
+    scoring = progress.scoring;
     sessionSummary = {
       passedObstacles: authoritative.passedObstacles,
-      longestCleanStreak: authoritative.longestCleanStreak,
-      survivalSeconds: authoritative.survivalSeconds,
       collision: authoritative.collision,
     };
   } else if (attempt.game === 'tap') {
-    const authoritative = analyzeTapSession(taps, attempt.maxDurationMs);
+    const progress = computeTapProgress({
+      tapTimestampsMs: taps,
+      durationMs: attempt.maxDurationMs,
+    });
+    const authoritative = progress.metrics;
     risk = evaluateTapRisk({ tapTimestampsMs: taps, isTrustedFlags, pointerIds, visibilityEvents, pressDurationsMs: body.pressDurationsMs });
-    scoring = computeTapResult({ ...authoritative, peakReachedWithMsRemaining: authoritative.peakReachedWithMsRemaining, securityRiskScore: risk.riskScore });
+    scoring = progress.scoring;
     sessionSummary = {
       averageScoringTps: authoritative.averageScoringTps,
       peakSmoothedTps: authoritative.peakSmoothedTps,
@@ -91,9 +106,11 @@ export default async function handler(req, res) {
     // of their three daily attempts. DECR is atomic in Redis, and attemptId is
     // single-use, so the same rejected run cannot be refunded twice.
     const attemptDate = attempt.attemptDate || date;
+    const subject = attempt.subject || uid;
+    const attemptLimit = attempt.attemptLimit || BASE_ATTEMPTS_PER_DAY;
     const attemptsRemainingToday = Math.max(
       0,
-      MAX_ATTEMPTS_PER_DAY - Math.max(0, await kv.decr(`attempts:${uid}:${attemptDate}`)),
+      attemptLimit - Math.max(0, await kv.decr(`attempts:${subject}:${attemptDate}`)),
     );
     await kv.incr(`analytics:game_invalidated:${date}`);
     console.warn('[game-invalid]', {
@@ -121,18 +138,20 @@ export default async function handler(req, res) {
     });
   }
 
-  await updateStats(uid, attempt.game, { durationMs: serverElapsedMs, score: scoring.finalScore });
-
   const attemptDate = attempt.attemptDate || date;
-  const attemptsUsed = await getAttemptsUsed(uid, attemptDate);
-  const attemptsRemainingToday = Math.max(0, MAX_ATTEMPTS_PER_DAY - attemptsUsed);
-  const existingReward = await kv.get(`rewarded:${uid}:${attemptDate}`);
+  const subject = attempt.subject || uid;
+  const attemptLimit = attempt.attemptLimit || BASE_ATTEMPTS_PER_DAY;
+  await updateStats(subject, attempt.game, { durationMs: serverElapsedMs, score: scoring.finalScore });
+
+  const attemptsUsed = await getAttemptsUsed(subject, attemptDate);
+  const attemptsRemainingToday = Math.max(0, attemptLimit - attemptsUsed);
+  const existingReward = await kv.get(`rewarded:${subject}:${attemptDate}`);
   const isPractice = !attempt.rewardEligible || Boolean(existingReward);
 
   let best = null;
   let isCurrentBest = false;
   if (!isPractice && response.rewardAllowed) {
-    const recorded = await recordBestResult(uid, attemptDate, {
+    const recorded = await recordBestResult(subject, attemptDate, {
       attemptId,
       game: attempt.game,
       attemptNumber: attemptsUsed,
@@ -145,13 +164,26 @@ export default async function handler(req, res) {
     isCurrentBest = recorded.isCurrentBest;
   }
 
-  // Finishing the third verified run closes the set and locks the coupon to
-  // the best result. Before that, the client offers "claim now" or another run.
+  // Finishing the bonus run closes a verified set and locks the coupon to the
+  // best result. Before that, the client offers "claim now" or another run.
   let reward = null;
-  if (!isPractice && attemptsRemainingToday === 0 && best) {
-    const claimed = await claimBestReward(uid, attemptDate);
+  let delivery = null;
+  if (!best && !isPractice) best = await getBestResult(subject, attemptDate);
+  if (!isPractice && attempt.emailVerifiedAtStart && attemptsRemainingToday === 0 && best) {
+    const claimed = await claimBestReward(subject, attemptDate, uid);
     if (claimed.ok) reward = claimed.reward;
+    if (reward) {
+      const player = await getPlayerContext(uid, attemptDate);
+      delivery = await deliverRewardToContact(player.contact, reward);
+    }
   }
+  const player = await getPlayerContext(uid, attemptDate);
+  const phoneVerificationRequired = !player.phoneVerified
+    && attemptsUsed >= BASE_ATTEMPTS_PER_DAY;
+  const emailOfferAvailable = player.phoneVerified
+    && !player.emailVerified
+    && !existingReward
+    && Boolean(best);
 
   return res.status(200).json({
     valid: true,
@@ -165,11 +197,20 @@ export default async function handler(req, res) {
     isCurrentBest,
     attemptsUsed,
     attemptsRemainingToday,
-    setComplete: attemptsRemainingToday === 0,
-    canClaim: !isPractice && Boolean(best),
+    attemptLimit,
+    verified: player.phoneVerified,
+    phoneVerified: player.phoneVerified,
+    emailVerified: player.emailVerified,
+    contact: publicContact(player.contact),
+    emailContact: publicContact(player.emailContact),
+    phoneVerificationRequired,
+    emailOfferAvailable,
+    setComplete: player.emailVerified && attemptsRemainingToday === 0,
+    canClaim: player.phoneVerified && !isPractice && Boolean(best),
     rewardToken: reward?.rewardToken ?? null,
     couponCode: reward?.couponCode ?? null,
     couponExpiresAt: reward?.couponExpiresAt ?? null,
+    delivery,
     components: scoring.components,
     session: sessionSummary,
     securityRiskScore: risk.riskScore,

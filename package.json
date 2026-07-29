@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "REWARD_TOKEN_SECRET=dev-only-secret-never-use-in-production COUPON_STAFF_PIN=2468 vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@upstash/redis": "^1.34.0",

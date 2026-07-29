@@ -1,4 +1,7 @@
 import { renderMenu } from './menu.js';
+import { renderLegalDocument } from './legal.js';
+import { mountContactVerification } from './verification.js';
+import { LEGAL_VERSION } from '../shared/legal.js';
 
 const isCouponDesk = new URLSearchParams(location.search).get('mode') === 'redeem';
 
@@ -11,64 +14,146 @@ if (isCouponDesk) {
 
   const menuOverlay = document.getElementById('menu-overlay');
   const gameOverlay = document.getElementById('game-overlay');
+  const legalOverlay = document.getElementById('legal-overlay');
   const menuContent = document.getElementById('menu-content');
   const gameRoot = document.getElementById('game-root');
+  const legalContent = document.getElementById('legal-content');
   const socialViewport = document.querySelector('.social-gallery__viewport');
   const socialScroller = document.querySelector('.social-gallery__scroller');
   const socialTrack = document.querySelector('.social-gallery__track');
-  const socialVideos = document.querySelectorAll('.social-gallery video');
+
+  if (socialTrack) {
+    const originalSet = socialTrack.querySelector('.social-gallery__set');
+    const setCount = socialTrack.querySelectorAll('.social-gallery__set').length;
+    if (originalSet && setCount === 2) {
+      const leadingClone = originalSet.cloneNode(true);
+      leadingClone.setAttribute('aria-hidden', 'true');
+      leadingClone.dataset.loopClone = 'leading';
+      leadingClone.querySelectorAll('a').forEach((link) => {
+        link.tabIndex = -1;
+        link.removeAttribute('aria-label');
+      });
+      socialTrack.prepend(leadingClone);
+    }
+  }
+
+  const socialVideos = Array.from(document.querySelectorAll('.social-gallery video'));
   const socialCards = document.querySelectorAll('.social-gallery__card');
+  const visibleSocialVideos = new Set();
+  let socialGalleryPaused = false;
+  let socialArcFrame = 0;
+  let startSocialArc = () => {};
 
   let activeGame = null;
   let gameLobbyController = null;
 
-  if (socialScroller && socialVideos.length) {
-    const videoObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const video = entry.target;
-        if (entry.isIntersecting) {
-          video.play().catch(() => {});
-        } else {
-          video.pause();
-        }
-      });
-    }, {
-      root: socialScroller,
-      rootMargin: '0px 18%',
-      threshold: 0.01,
-    });
+  const loadAndPlaySocialVideo = (video) => {
+    if (!video.getAttribute('src')) {
+      const source = video.dataset.src;
+      if (!source) return;
+      video.setAttribute('src', source);
+      video.load();
+    }
+    if (!socialGalleryPaused && visibleSocialVideos.has(video)) {
+      video.play().catch(() => {});
+    }
+  };
 
-    socialVideos.forEach((video) => videoObserver.observe(video));
+  const setSocialGalleryPaused = (paused) => {
+    socialGalleryPaused = paused;
+    if (paused) {
+      cancelAnimationFrame(socialArcFrame);
+      socialVideos.forEach((video) => video.pause());
+      return;
+    }
+
+    visibleSocialVideos.forEach(loadAndPlaySocialVideo);
+    startSocialArc();
+  };
+
+  if (socialScroller && socialTrack) {
+    const firstSet = socialTrack.querySelector('.social-gallery__set');
+    const loopWidth = firstSet?.offsetWidth || 0;
+    if (loopWidth) socialScroller.scrollLeft = loopWidth;
+  }
+
+  if (socialScroller && socialVideos.length) {
+    if ('IntersectionObserver' in window) {
+      const videoObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target;
+          if (entry.isIntersecting) {
+            visibleSocialVideos.add(video);
+            loadAndPlaySocialVideo(video);
+          } else {
+            visibleSocialVideos.delete(video);
+            video.pause();
+          }
+        });
+      }, {
+        root: socialScroller,
+        rootMargin: '0px',
+        threshold: 0.01,
+      });
+
+      socialVideos.forEach((video) => videoObserver.observe(video));
+    } else {
+      socialVideos.slice(0, 3).forEach((video) => {
+        visibleSocialVideos.add(video);
+        loadAndPlaySocialVideo(video);
+      });
+    }
   }
 
   if (socialViewport && socialScroller && socialTrack && socialCards.length) {
-    let arcFrame = 0;
     let previousFrameTime = 0;
     let autoScrollPausedUntil = 0;
     let dragStartX = 0;
     let dragStartScrollLeft = 0;
     let draggedDistance = 0;
     let isMouseDragging = false;
+    let loopPositionReady = false;
     const firstSet = socialTrack.querySelector('.social-gallery__set');
     const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const loopDurationMs = prefersReducedMotion ? 120000 : 52800;
+    const loopDurationMs = prefersReducedMotion ? 120000 : 42240;
 
     const pauseAutoScroll = (durationMs = 1800) => {
       autoScrollPausedUntil = performance.now() + durationMs;
     };
 
+    const normalizeLoopPosition = (loopWidth) => {
+      if (!loopWidth) return;
+      if (!loopPositionReady) {
+        socialScroller.scrollLeft = loopWidth;
+        loopPositionReady = true;
+        return;
+      }
+
+      let shift = 0;
+      if (socialScroller.scrollLeft < loopWidth * 0.5) {
+        shift = loopWidth;
+      } else if (socialScroller.scrollLeft >= loopWidth * 1.5) {
+        shift = -loopWidth;
+      }
+
+      if (!shift) return;
+      socialScroller.scrollLeft += shift;
+      if (isMouseDragging) dragStartScrollLeft += shift;
+    };
+
     const drawSocialArc = (frameTime) => {
+      if (socialGalleryPaused) return;
+
       const elapsedMs = previousFrameTime
         ? Math.min(50, frameTime - previousFrameTime)
         : 0;
       previousFrameTime = frameTime;
 
       const loopWidth = firstSet?.offsetWidth || 0;
+      normalizeLoopPosition(loopWidth);
       if (loopWidth && frameTime >= autoScrollPausedUntil) {
         socialScroller.scrollLeft += (loopWidth / loopDurationMs) * elapsedMs;
-        if (socialScroller.scrollLeft >= loopWidth) {
-          socialScroller.scrollLeft -= loopWidth;
-        }
+        normalizeLoopPosition(loopWidth);
       }
 
       const viewportRect = socialViewport.getBoundingClientRect();
@@ -83,7 +168,8 @@ if (isCouponDesk) {
         const clamped = Math.max(-1.15, Math.min(1.15, normalized));
         const distance = Math.min(1, Math.abs(clamped));
         const curve = distance ** 1.75;
-        const y = 44 * curve;
+        const arcDepth = Math.min(44, card.offsetHeight * 0.16);
+        const y = arcDepth * curve;
         const rotation = 7.5 * clamped;
         const scale = 1.055 - (0.11 * curve);
 
@@ -92,18 +178,19 @@ if (isCouponDesk) {
         card.style.setProperty('--arc-scale', scale.toFixed(3));
         card.style.setProperty('--arc-saturation', (1 - (0.13 * curve)).toFixed(3));
         card.style.setProperty('--arc-brightness', (1 - (0.06 * curve)).toFixed(3));
-        card.style.setProperty('--arc-shadow-y', `${(15 + (9 * curve)).toFixed(2)}px`);
-        card.style.setProperty('--arc-shadow-blur', `${(30 + (9 * curve)).toFixed(2)}px`);
+        card.style.setProperty('--arc-shadow-y', `${(10 + (5 * curve)).toFixed(2)}px`);
+        card.style.setProperty('--arc-shadow-blur', `${(20 + (5 * curve)).toFixed(2)}px`);
         card.style.zIndex = String(20 - Math.round(distance * 10));
       });
 
-      arcFrame = requestAnimationFrame(drawSocialArc);
+      socialArcFrame = requestAnimationFrame(drawSocialArc);
     };
 
-    const startSocialArc = () => {
-      cancelAnimationFrame(arcFrame);
+    startSocialArc = () => {
+      if (socialGalleryPaused) return;
+      cancelAnimationFrame(socialArcFrame);
       previousFrameTime = 0;
-      arcFrame = requestAnimationFrame(drawSocialArc);
+      socialArcFrame = requestAnimationFrame(drawSocialArc);
     };
 
     socialScroller.addEventListener('touchstart', () => pauseAutoScroll(), { passive: true });
@@ -156,25 +243,24 @@ if (isCouponDesk) {
       draggedDistance = 0;
     }, true);
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        cancelAnimationFrame(arcFrame);
-      } else {
-        startSocialArc();
-      }
-    });
-
     startSocialArc();
   }
+
+  document.addEventListener('visibilitychange', () => {
+    const overlayOpen = !menuOverlay.hidden || !gameOverlay.hidden || !legalOverlay.hidden;
+    setSocialGalleryPaused(document.hidden || overlayOpen);
+  });
 
   function openOverlay(overlay) {
     overlay.hidden = false;
     document.body.style.overflow = 'hidden';
+    setSocialGalleryPaused(true);
   }
 
   function closeOverlay(overlay) {
     overlay.hidden = true;
-    if (menuOverlay.hidden && gameOverlay.hidden) {
+    const allOverlaysClosed = menuOverlay.hidden && gameOverlay.hidden && legalOverlay.hidden;
+    if (allOverlaysClosed) {
       document.body.style.overflow = '';
     }
     if (overlay === gameOverlay) {
@@ -184,6 +270,7 @@ if (isCouponDesk) {
       activeGame = null;
       gameRoot.innerHTML = '';
     }
+    if (allOverlaysClosed) setSocialGalleryPaused(document.hidden);
   }
 
   async function mountSelectedGame(game) {
@@ -200,7 +287,10 @@ if (isCouponDesk) {
         ? await import('./game/tapClient.js')
         : await import('./game/flappyClient.js');
       gameRoot.innerHTML = '';
-      activeGame = module.mount(gameRoot);
+      activeGame = module.mount(gameRoot, {
+        onVerifyPhone: () => showContactVerification(game, 'phone'),
+        onEmailOffer: (contact) => showContactVerification(game, 'post-phone', contact),
+      });
     } catch (err) {
       gameRoot.innerHTML = `
         <section class="game-lobby game-lobby--message" role="alert">
@@ -212,12 +302,29 @@ if (isCouponDesk) {
     }
   }
 
-  function showDailyComplete() {
+  function showContactVerification(game, initialStep = 'phone', contact = null) {
+    activeGame?.destroy?.();
+    activeGame = null;
+    gameRoot.innerHTML = '';
+    activeGame = mountContactVerification(gameRoot, {
+      game,
+      initialStep,
+      contact,
+      onPlay: () => {
+        activeGame?.destroy?.();
+        activeGame = null;
+        mountSelectedGame(game);
+      },
+    });
+  }
+
+  function showDailyComplete(status) {
+    const attempts = Number(status?.attemptsUsed) || 4;
     gameRoot.innerHTML = `
       <section class="game-lobby game-lobby--message" aria-live="polite">
         <span class="game-lobby__eyebrow">TODAY'S SET IS COMPLETE</span>
         <strong>COME BACK TOMORROW</strong>
-        <span>You used all 3 attempts. A fresh game choice unlocks tomorrow.</span>
+        <span>You used all ${attempts} attempts. A fresh game choice unlocks tomorrow.</span>
       </section>`;
   }
 
@@ -258,6 +365,70 @@ if (isCouponDesk) {
     });
   }
 
+  function showConsentGate() {
+    gameRoot.innerHTML = `
+      <section class="game-lobby game-lobby--consent">
+        <header class="game-lobby__header">
+          <span class="game-lobby__eyebrow">ONE QUICK CHECK</span>
+          <strong>READY TO PLAY?</strong>
+          <span>Confirm once on this device. We keep the rules short and the game fair.</span>
+        </header>
+        <form class="game-consent">
+          <label class="game-consent__check">
+            <input class="game-consent__input" type="checkbox" name="agreement" />
+            <span class="game-consent__box" aria-hidden="true"></span>
+            <span class="game-consent__label">I’m 13 or older and agree to the documents below.</span>
+          </label>
+          <div class="game-consent__links">
+            <button type="button" data-action="open-legal" data-legal="terms">Terms &amp; Game Rules</button>
+            <button type="button" data-action="open-legal" data-legal="privacy">Privacy Policy</button>
+          </div>
+          <p class="game-consent__note">No marketing subscription is required to play or receive a coupon.</p>
+          <p class="game-consent__error" role="alert" hidden></p>
+          <button class="game-consent__submit" type="submit">ENTER THE ARCADE →</button>
+        </form>
+      </section>`;
+
+    const form = gameRoot.querySelector('.game-consent');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const checkbox = form.elements.agreement;
+      const submit = form.querySelector('.game-consent__submit');
+      const error = form.querySelector('.game-consent__error');
+      if (!checkbox.checked) {
+        error.textContent = 'Please check the box to continue.';
+        error.hidden = false;
+        checkbox.focus();
+        return;
+      }
+
+      submit.disabled = true;
+      submit.textContent = 'SAVING…';
+      error.hidden = true;
+      try {
+        const response = await fetch('/api/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            version: LEGAL_VERSION,
+            accepted: true,
+            ageConfirmed: true,
+          }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || !body.accepted) {
+          throw new Error(body.message || 'Could not save your confirmation.');
+        }
+        await openGame();
+      } catch (err) {
+        error.textContent = err.message || 'Could not save your confirmation. Please try again.';
+        error.hidden = false;
+        submit.disabled = false;
+        submit.textContent = 'TRY AGAIN →';
+      }
+    });
+  }
+
   async function openGame() {
     openOverlay(gameOverlay);
     if (activeGame || gameLobbyController) return;
@@ -278,8 +449,14 @@ if (isCouponDesk) {
       });
       const status = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(status.message || 'Could not check today’s attempts.');
-      if (status.exhausted) {
-        showDailyComplete();
+      if (status.consentRequired) {
+        showConsentGate();
+      } else if (status.phoneVerificationRequired && status.selectedGame) {
+        showContactVerification(status.selectedGame, 'phone');
+      } else if (status.postPhoneActionRequired && status.selectedGame) {
+        showContactVerification(status.selectedGame, 'post-phone', status.contact);
+      } else if (status.exhausted) {
+        showDailyComplete(status);
       } else if (status.selectedGame === 'flappy' || status.selectedGame === 'tap') {
         await mountSelectedGame(status.selectedGame);
       } else {
@@ -304,6 +481,10 @@ if (isCouponDesk) {
     if (action === 'open-menu') {
       renderMenu(menuContent);
       openOverlay(menuOverlay);
+    } else if (action === 'open-legal') {
+      const legalName = event.target.closest('[data-legal]')?.dataset.legal;
+      renderLegalDocument(legalContent, legalName);
+      openOverlay(legalOverlay);
     } else if (action === 'open-game') {
       openGame();
     } else if (action === 'close-overlay') {
@@ -315,7 +496,8 @@ if (isCouponDesk) {
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
-    if (!gameOverlay.hidden) closeOverlay(gameOverlay);
+    if (!legalOverlay.hidden) closeOverlay(legalOverlay);
+    else if (!gameOverlay.hidden) closeOverlay(gameOverlay);
     else if (!menuOverlay.hidden) closeOverlay(menuOverlay);
   });
 }

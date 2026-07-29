@@ -111,6 +111,23 @@ test('tap anti-bot: a fast irregular human burst remains valid', () => {
   assert.equal(riskResponse(r.riskScore).sessionValid, true);
 });
 
+test('tap anti-bot: fast two-finger mobile play is not score-penalized', () => {
+  const intervals = [62, 78, 55, 86, 69, 74, 58, 91, 66, 80];
+  const taps = [0];
+  while (taps.at(-1) < 6000) {
+    taps.push(taps.at(-1) + intervals[(taps.length - 1) % intervals.length]);
+  }
+  const r = evaluateTapRisk({
+    tapTimestampsMs: taps,
+    isTrustedFlags: taps.map(() => true),
+    pointerIds: taps.map((_, index) => index % 2),
+    pressDurationsMs: taps.map((_, index) => 5 + (index % 6)),
+    visibilityEvents: [],
+  });
+  assert.ok(r.riskScore < 40, `expected ordinary two-finger play below score penalty, got ${r.riskScore}`);
+  assert.equal(riskResponse(r.riskScore).sessionValid, true);
+});
+
 test('tap anti-bot: perfectly regular high-speed automation remains invalid', () => {
   const taps = Array.from({ length: 25 }, (_, index) => index * 50);
   const r = evaluateTapRisk({
@@ -124,10 +141,10 @@ test('tap anti-bot: perfectly regular high-speed automation remains invalid', ()
   assert.equal(riskResponse(r.riskScore).sessionValid, false);
 });
 
-test('tap rate limiter: 18 attempted taps/sec counted down to <=12', () => {
+test('tap rate limiter: 18 attempted taps/sec counted down to <=14', () => {
   const attempted = [];
   for (let i = 0; i < 18; i++) attempted.push((1000 / 18) * i);
   const { validTaps, rejectedCount } = filterValidTaps(attempted);
-  assert.ok(validTaps.length <= 12, `expected <=12 counted, got ${validTaps.length}`);
+  assert.ok(validTaps.length <= 14, `expected <=14 counted, got ${validTaps.length}`);
   assert.ok(rejectedCount > 0);
 });

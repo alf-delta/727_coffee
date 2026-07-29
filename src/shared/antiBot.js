@@ -173,7 +173,8 @@ export function evaluateTapRisk(evidence) {
     triggered.push('repeating_interval_pattern');
   }
   if (countDistinctPointers(evidence.pointerIds ?? []) > 1) {
-    points += 20;
+    // Alternating two thumbs/fingers is normal for a mobile tapping game.
+    // Keep the signal for diagnostics without lowering a legitimate score.
     triggered.push('multi_pointer_input');
   }
   if (hasSyntheticEvent(evidence.isTrustedFlags ?? [])) {
@@ -203,7 +204,7 @@ export function evaluateTapRisk(evidence) {
 /** Shared response table from both specs' anti_bot.response. */
 export function riskResponse(riskScore) {
   if (riskScore <= 39) return { sessionValid: true, rewardAllowed: true, scoreMultiplier: 1 };
-  if (riskScore <= 69) return { sessionValid: true, rewardAllowed: true, scoreMultiplier: 0.75, logForAnalysis: true };
+  if (riskScore <= 69) return { sessionValid: true, rewardAllowed: true, scoreMultiplier: 1, logForAnalysis: true };
   if (riskScore <= 99) return { sessionValid: false, rewardAllowed: false, userMessage: "We couldn't verify this attempt. Please try again." };
   return { sessionValid: false, rewardAllowed: false, temporarySessionBlockMinutes: 30 };
 }

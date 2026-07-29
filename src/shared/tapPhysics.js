@@ -5,7 +5,7 @@
  * source of truth, "recalculate_score_on_server" holds by construction.
  */
 
-export const PHYSICS_VERSION = 'tap-pressure-1.0.0';
+export const PHYSICS_VERSION = 'tap-pressure-1.1.0';
 
 export const SESSION = {
   countdownSeconds: 3,
@@ -18,13 +18,13 @@ export const SESSION = {
 };
 
 export const RATE_LIMITS = {
-  hardMaxTapsPerSecond: 12,
-  minIntervalMs: 83.333,
-  intervalToleranceMs: 3,
+  hardMaxTapsPerSecond: 14,
+  minIntervalMs: 65,
+  intervalToleranceMs: 5,
   windows: [
-    { windowMs: 1000, maxTaps: 12 },
-    { windowMs: 500, maxTaps: 6 },
-    { windowMs: 250, maxTaps: 3 },
+    { windowMs: 1000, maxTaps: 14 },
+    { windowMs: 500, maxTaps: 7 },
+    { windowMs: 250, maxTaps: 4 },
   ],
 };
 

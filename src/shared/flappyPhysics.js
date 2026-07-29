@@ -330,9 +330,10 @@ export function simulateRun(seed, flapTimesMs, maxDurationMs) {
     }
 
     simTimeMs += FIXED_STEP_MS;
+
   }
 
-  return {
+  const finalMetrics = {
     passedObstacles,
     cleanPasses,
     perfectPasses,
@@ -343,6 +344,8 @@ export function simulateRun(seed, flapTimesMs, maxDurationMs) {
     cleanPassRatio: passedObstacles > 0 ? cleanPasses / passedObstacles : 0,
     perfectPassRatio: passedObstacles > 0 ? perfectPasses / passedObstacles : 0,
     effectiveFlapCount,
-    actualValidFlapCount: sortedFlaps.length,
+    actualValidFlapCount: flapCursor,
   };
+
+  return finalMetrics;
 }

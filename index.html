@@ -23,12 +23,16 @@
       </button>
 
       <button class="link-btn link-btn--play" type="button" data-action="open-game">
+        <span class="link-btn__motion" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i>
+        </span>
+        <span class="link-btn__matte" aria-hidden="true"></span>
         <span class="link-btn__icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4z"/></svg>
         </span>
-        <span>
+        <span class="link-btn__copy">
           Play &amp; Win a Discount
-          <span class="link-btn__subtitle">Up to 25% off — one free spin a day</span>
+          <span class="link-btn__subtitle">Up to 25% off</span>
         </span>
       </button>
 
@@ -44,45 +48,41 @@
     </nav>
 
     <section class="social-gallery" aria-label="Latest moments from Monoblend">
-      <header class="social-gallery__header">
-        <span>SEE WHAT WE’RE SERVING</span>
-        <a href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer">FOLLOW ↗</a>
-      </header>
       <div class="social-gallery__viewport">
         <div class="social-gallery__scroller" tabindex="0" aria-label="Scrollable Instagram reels">
           <div class="social-gallery__track">
             <div class="social-gallery__set">
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" aria-label="Watch Monoblend reel on Instagram">
-              <video src="/social/reel-01.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-01.mp4" muted loop playsinline preload="none"></video>
             </a>
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" aria-label="Watch Monoblend reel on Instagram">
-              <video src="/social/reel-02.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-02.mp4" muted loop playsinline preload="none"></video>
             </a>
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" aria-label="Watch Monoblend reel on Instagram">
-              <video src="/social/reel-03.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-03.mp4" muted loop playsinline preload="none"></video>
             </a>
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" aria-label="Watch Monoblend reel on Instagram">
-              <video src="/social/reel-04.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-04.mp4" muted loop playsinline preload="none"></video>
             </a>
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" aria-label="Watch Monoblend reel on Instagram">
-              <video src="/social/reel-05.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-05.mp4" muted loop playsinline preload="none"></video>
             </a>
             </div>
             <div class="social-gallery__set" aria-hidden="true">
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" tabindex="-1">
-              <video src="/social/reel-01.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-01.mp4" muted loop playsinline preload="none"></video>
             </a>
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" tabindex="-1">
-              <video src="/social/reel-02.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-02.mp4" muted loop playsinline preload="none"></video>
             </a>
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" tabindex="-1">
-              <video src="/social/reel-03.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-03.mp4" muted loop playsinline preload="none"></video>
             </a>
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" tabindex="-1">
-              <video src="/social/reel-04.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-04.mp4" muted loop playsinline preload="none"></video>
             </a>
             <a class="social-gallery__card" href="https://www.instagram.com/monoblend.coffee/?hl=en" target="_blank" rel="noopener noreferrer" tabindex="-1">
-              <video src="/social/reel-05.mp4" muted loop playsinline preload="metadata"></video>
+              <video data-src="/social/reel-05.mp4" muted loop playsinline preload="none"></video>
             </a>
             </div>
           </div>
@@ -92,6 +92,11 @@
 
     <footer class="footer">
       <p>&copy; <span id="year"></span> Monoblend Coffee</p>
+      <nav class="footer__legal" aria-label="Legal information">
+        <button type="button" data-action="open-legal" data-legal="terms">Terms &amp; Game Rules</button>
+        <span aria-hidden="true">·</span>
+        <button type="button" data-action="open-legal" data-legal="privacy">Privacy Policy</button>
+      </nav>
     </footer>
   </main>
 
@@ -106,6 +111,13 @@
     <div class="overlay__panel overlay__panel--game">
       <button class="overlay__close" type="button" data-action="close-overlay" aria-label="Close game">&times;</button>
       <div id="game-root"></div>
+    </div>
+  </div>
+
+  <div class="overlay overlay--legal" id="legal-overlay" hidden>
+    <div class="overlay__panel overlay__panel--legal">
+      <button class="overlay__close" type="button" data-action="close-overlay" aria-label="Close document">&times;</button>
+      <div id="legal-content"></div>
     </div>
   </div>
 

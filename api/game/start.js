@@ -1,9 +1,15 @@
 import { randomUUID, randomInt } from 'node:crypto';
 import { kv } from '../../src/server/kv.js';
 import { parseCookies, readJsonBody } from '../../src/server/request.js';
-import { UID_COOKIE, MAX_ATTEMPTS_PER_DAY } from '../../src/server/config.js';
+import { UID_COOKIE } from '../../src/server/config.js';
 import { todayUTC, secondsUntilNextUTCMidnight } from '../../src/server/date.js';
 import { lockDailyGameChoice } from '../../src/server/gameChoice.js';
+import { hasCurrentConsent } from '../../src/server/consent.js';
+import {
+  getPlayerContext,
+  publicContact,
+} from '../../src/server/contactIdentity.js';
+import { LEGAL_VERSION } from '../../src/shared/legal.js';
 import { PHYSICS_VERSION as FLAPPY_PHYSICS_VERSION, SESSION as FLAPPY_SESSION } from '../../src/shared/flappyPhysics.js';
 import { PHYSICS_VERSION as TAP_PHYSICS_VERSION, SESSION as TAP_SESSION } from '../../src/shared/tapPhysics.js';
 
@@ -13,13 +19,21 @@ export default async function handler(req, res) {
   const cookies = parseCookies(req);
   const uid = cookies[UID_COOKIE];
   if (!uid) return res.status(400).json({ error: 'missing_uid', message: 'Reload the page and try again.' });
+  if (!(await hasCurrentConsent(uid))) {
+    return res.status(403).json({
+      error: 'consent_required',
+      message: 'Please accept the current Terms & Game Rules before playing.',
+      legalVersion: LEGAL_VERSION,
+    });
+  }
 
   const body = await readJsonBody(req);
   const game = body.game;
   if (game !== 'flappy' && game !== 'tap') return res.status(400).json({ error: 'invalid_game' });
 
   const date = todayUTC();
-  const selectedGame = await lockDailyGameChoice(uid, date, game);
+  const context = await getPlayerContext(uid, date);
+  const selectedGame = await lockDailyGameChoice(context.subject, date, game);
   if (selectedGame !== game) {
     return res.status(403).json({
       error: 'daily_game_locked',
@@ -28,14 +42,30 @@ export default async function handler(req, res) {
     });
   }
 
-  const dailyKey = `attempts:${uid}:${date}`;
+  const dailyKey = `attempts:${context.subject}:${date}`;
   const attemptsToday = await kv.incr(dailyKey);
   if (attemptsToday === 1) await kv.expire(dailyKey, secondsUntilNextUTCMidnight());
-  if (attemptsToday > MAX_ATTEMPTS_PER_DAY) {
-    return res.status(403).json({ error: 'daily_limit_reached', message: 'You have used all your attempts for today — come back tomorrow.' });
+  if (attemptsToday > context.attemptLimit) {
+    await kv.decr(dailyKey);
+    if (!context.phoneVerified) {
+      return res.status(403).json({
+        error: 'phone_verification_required',
+        message: 'Verify your mobile number to receive your coupon.',
+      });
+    }
+    if (!context.emailVerified) {
+      return res.status(403).json({
+        error: 'email_verification_or_claim_required',
+        message: 'Verify your email for one extra run, or send your current coupon.',
+      });
+    }
+    return res.status(403).json({
+      error: 'daily_limit_reached',
+      message: 'You have used all your attempts for today — come back tomorrow.',
+    });
   }
 
-  const rewardedKey = `rewarded:${uid}:${date}`;
+  const rewardedKey = `rewarded:${context.subject}:${date}`;
   const alreadyRewardedToday = Boolean(await kv.get(rewardedKey));
 
   const attemptId = randomUUID();
@@ -49,12 +79,16 @@ export default async function handler(req, res) {
     `attempt:${attemptId}`,
     {
       uid,
+      subject: context.subject,
       game,
       seed,
       nonce,
       startedAt: Date.now(),
       attemptDate: date,
       maxDurationMs,
+      attemptLimit: context.attemptLimit,
+      verifiedAtStart: context.phoneVerified,
+      emailVerifiedAtStart: context.emailVerified,
       rewardEligible: !alreadyRewardedToday,
     },
     { ex: sessionMaxAgeSeconds },
@@ -71,6 +105,10 @@ export default async function handler(req, res) {
     maxDurationMs,
     rewardEligible: !alreadyRewardedToday,
     selectedGame,
-    attemptsRemainingToday: Math.max(0, MAX_ATTEMPTS_PER_DAY - attemptsToday),
+    verified: context.verified,
+    phoneVerified: context.phoneVerified,
+    emailVerified: context.emailVerified,
+    contact: publicContact(context.contact),
+    attemptsRemainingToday: Math.max(0, context.attemptLimit - attemptsToday),
   });
 }

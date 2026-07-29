@@ -54,25 +54,47 @@ const DISCOUNT_BANDS = [
   { min: 99, maxExclusive: 101, percent: 25 },
 ];
 
+// Fast human play should still earn a solid middle reward even when its
+// rhythm is naturally irregular. These floors stop a failed 23-25% attempt
+// from falling all the way back to 13%.
+const SPEED_DISCOUNT_FLOORS = [
+  { minAverageScoringTps: 11, percent: 22 },
+  { minAverageScoringTps: 10.6, percent: 21 },
+  { minAverageScoringTps: 10, percent: 20 },
+  { minAverageScoringTps: 9.3, percent: 19 },
+  { minAverageScoringTps: 8.5, percent: 17 },
+  { minAverageScoringTps: 7.5, percent: 15 },
+];
+
 // Per-metric gates for the rare top bands. `minimum_final_score` from the
 // spec is intentionally NOT checked here — see the equivalent note in
 // flappyScoring.js and the decision recorded in the plan: per-metric
 // thresholds are authoritative for 23-25%, final_score governs 3-22%.
 const TOP_BAND_REQUIREMENTS = {
   25: {
-    minAverageScoringTps: 8.7,
-    minPeakSmoothedTps: 9.5,
-    minRhythmStabilityScore: 0.9,
-    minContinuityScore: 0.86,
-    minHoldAbove8TpsMs: 1800,
-    minHoldAbove9TpsMs: 900,
-    maxSecurityRiskScore: 15,
+    minFinalScore: 96,
+    minAverageScoringTps: 11.35,
+    minPeakSmoothedTps: 11.95,
+    minRhythmStabilityScore: 0.92,
+    minContinuityScore: 0.91,
+    minHoldAbove10TpsMs: 3200,
+    minHoldAbove11TpsMs: 2200,
   },
-  // 23/24 don't carry a security gate in the source JSON (only 25 does) —
-  // added here too, for the same reason as flappyScoring.js: a session
-  // flagged as risky shouldn't unlock an elevated discount at any band.
-  24: { minAverageScoringTps: 8.3, minRhythmStabilityScore: 0.84, minHoldAbove8TpsMs: 1300, maxSecurityRiskScore: 20 },
-  23: { minAverageScoringTps: 7.9, minRhythmStabilityScore: 0.78, maxSecurityRiskScore: 25 },
+  24: {
+    minFinalScore: 93,
+    minAverageScoringTps: 10.9,
+    minRhythmStabilityScore: 0.88,
+    minContinuityScore: 0.87,
+    minHoldAbove10TpsMs: 2400,
+    minHoldAbove11TpsMs: 1200,
+  },
+  23: {
+    minFinalScore: 90,
+    minAverageScoringTps: 10.4,
+    minRhythmStabilityScore: 0.82,
+    minContinuityScore: 0.82,
+    minHoldAbove10TpsMs: 1600,
+  },
 };
 
 function meetsRequirements(reqs, m) {
@@ -84,7 +106,8 @@ function meetsRequirements(reqs, m) {
   if (reqs.minContinuityScore !== undefined && m.continuityScore < reqs.minContinuityScore) return false;
   if (reqs.minHoldAbove8TpsMs !== undefined && (m.holdMsByTps?.[8] ?? 0) < reqs.minHoldAbove8TpsMs) return false;
   if (reqs.minHoldAbove9TpsMs !== undefined && (m.holdMsByTps?.[9] ?? 0) < reqs.minHoldAbove9TpsMs) return false;
-  if (reqs.maxSecurityRiskScore !== undefined && m.securityRiskScore > reqs.maxSecurityRiskScore) return false;
+  if (reqs.minHoldAbove10TpsMs !== undefined && (m.holdMsByTps?.[10] ?? 0) < reqs.minHoldAbove10TpsMs) return false;
+  if (reqs.minHoldAbove11TpsMs !== undefined && (m.holdMsByTps?.[11] ?? 0) < reqs.minHoldAbove11TpsMs) return false;
   return true;
 }
 
@@ -117,9 +140,6 @@ export function computeTapResult(m) {
   if (m.averageScoringTps > 8 && rhythmStabilityScore < 0.65) finalScore *= 0.88;
   const hold9 = m.holdMsByTps?.[9] ?? 0;
   if (m.peakSmoothedTps > 9 && hold9 < 500) finalScore *= 0.9;
-  const securityRiskScore = m.securityRiskScore ?? 0;
-  if (securityRiskScore >= 40 && securityRiskScore <= 69) finalScore *= 0.75;
-
   const hold8 = m.holdMsByTps?.[8] ?? 0;
   const caps = [];
   if (rhythmStabilityScore < 0.75) caps.push(82);
@@ -137,7 +157,6 @@ export function computeTapResult(m) {
     rhythmStabilityScore,
     continuityScore,
     holdMsByTps: m.holdMsByTps ?? {},
-    securityRiskScore,
   };
 
   // Top bands (23-25%) are earned by explicit per-metric gates, checked
@@ -148,6 +167,10 @@ export function computeTapResult(m) {
   if (percent === undefined) {
     const band = DISCOUNT_BANDS.find((b) => finalScore >= b.min && finalScore < b.maxExclusive) ?? DISCOUNT_BANDS[0];
     percent = Math.min(band.percent, 22);
+    const speedFloor = SPEED_DISCOUNT_FLOORS.find(
+      ({ minAverageScoringTps }) => m.averageScoringTps >= minAverageScoringTps,
+    );
+    if (speedFloor) percent = Math.max(percent, speedFloor.percent);
   }
 
   return {

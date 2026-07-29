@@ -1,10 +1,9 @@
 import {
   SESSION,
-  analyzeTapSession,
   filterValidTaps,
   computeTapSeries,
 } from '../../shared/tapPhysics.js';
-import { computeTapResult } from '../../shared/tapScoring.js';
+import { computeTapProgress } from '../../shared/tapProgress.js';
 
 const MAX_PRESSURE_BAR = 12;
 const IDEAL_PRESSURE_MIN = 8.5;
@@ -34,7 +33,7 @@ function pressureStatus(pressure, elapsedMs) {
   return 'REDLINE · FIND RHYTHM';
 }
 
-export function mount(container) {
+export function mount(container, options = {}) {
   const panel = container.closest('.overlay__panel--game');
   panel?.classList.add('overlay__panel--tap');
 
@@ -57,7 +56,7 @@ export function mount(container) {
           </div>
           <div class="tapgame__readout tapgame__readout--discount">
             <small>YOUR DISCOUNT</small>
-            <strong data-role="discount">0</strong>
+            <strong data-role="discount">3</strong>
             <span>% OFF</span>
           </div>
           <div class="tapgame__readout">
@@ -211,6 +210,14 @@ export function mount(container) {
       const body = await res.json().catch(() => ({}));
       if (destroyed) return;
       if (!res.ok) {
+        if (body.error === 'phone_verification_required' && options.onVerifyPhone) {
+          options.onVerifyPhone();
+          return;
+        }
+        if (body.error === 'email_verification_or_claim_required' && options.onEmailOffer) {
+          options.onEmailOffer();
+          return;
+        }
         setPhase('error');
         prompt.innerHTML = `
           <div class="tapgame__result-card tapgame__result-card--error">
@@ -466,10 +473,9 @@ export function mount(container) {
     ctx.fill();
   }
 
-  function updateMachine(elapsedMs, pressure, metrics, liveDiscount) {
+  function updateMachine(elapsedMs, pressure, metrics) {
     const remaining = Math.max(0, attempt.maxDurationMs - elapsedMs);
     timeEl.textContent = (remaining / 1000).toFixed(1);
-    discountEl.textContent = String(liveDiscount);
     tapCountEl.textContent = String(rawTaps.length).padStart(2, '0');
     zoneEl.textContent = pressureStatus(pressure, elapsedMs);
 
@@ -502,13 +508,14 @@ export function mount(container) {
     const series = computeTapSeries(validTaps, activeElapsed);
     latestPressure = series.at(-1)?.smoothedTps ?? 0;
 
-    let liveDiscount = 0;
-    const metrics = analyzeTapSession(rawTaps, activeElapsed);
-    if (rawTaps.length > 0) {
-      liveDiscount = Math.min(24, computeTapResult(metrics).discountPercent);
-    }
+    const progress = computeTapProgress({
+      tapTimestampsMs: rawTaps,
+      durationMs: activeElapsed,
+    });
+    const metrics = progress.metrics;
+    discountEl.textContent = String(progress.scoring.discountPercent);
 
-    updateMachine(elapsedMs, latestPressure, metrics, liveDiscount);
+    updateMachine(elapsedMs, latestPressure, metrics);
     drawGauge(latestPressure);
 
     if (elapsedMs >= attempt.maxDurationMs) {
@@ -595,7 +602,26 @@ export function mount(container) {
       drawGauge(latestPressure);
       navigator.vibrate?.([18, 45, 28]);
 
-      if (result.isPractice) {
+      if (result.phoneVerificationRequired) {
+        prompt.innerHTML = `
+          <div class="tapgame__result-card">
+            <span>YOUR BEST SHOT IS SAVED</span>
+            <strong class="tapgame__result-reward">${bestDiscount}% OFF</strong>
+            <div class="tapgame__result-actions">
+              <button type="button" class="tapgame__result-button" data-role="verify-phone">GET YOUR DISCOUNT COUPON</button>
+            </div>
+          </div>`;
+      } else if (result.emailOfferAvailable) {
+        prompt.innerHTML = `
+          <div class="tapgame__result-card">
+            <span>PHONE VERIFIED</span>
+            <strong class="tapgame__result-reward">${bestDiscount}% OFF</strong>
+            <div class="tapgame__token">ONE MORE SHOT COULD WIN A BIGGER DISCOUNT</div>
+            <div class="tapgame__result-actions">
+              <button type="button" class="tapgame__result-button" data-role="email-offer">CHOOSE YOUR NEXT MOVE</button>
+            </div>
+          </div>`;
+      } else if (result.isPractice) {
         prompt.innerHTML = `
           <div class="tapgame__result-card">
             <span>PRACTICE SHOT</span>
@@ -638,6 +664,8 @@ export function mount(container) {
 
       prompt.querySelector('[data-role="show-coupon"]')?.addEventListener('click', () => showTapCoupon(result));
       prompt.querySelector('[data-role="claim-now"]')?.addEventListener('click', () => claimBestTapCoupon(result));
+      prompt.querySelector('[data-role="verify-phone"]')?.addEventListener('click', () => options.onVerifyPhone?.());
+      prompt.querySelector('[data-role="email-offer"]')?.addEventListener('click', () => options.onEmailOffer?.(result.contact));
     }
 
     prompt.querySelector('[data-role="again"]')?.addEventListener('click', resetAndStart);
@@ -665,6 +693,10 @@ export function mount(container) {
         body: JSON.stringify({ game: 'tap' }),
       });
       const claimed = await res.json().catch(() => ({}));
+      if (claimed.error === 'phone_verification_required' && options.onVerifyPhone) {
+        options.onVerifyPhone();
+        return;
+      }
       if (!res.ok || !claimed.valid) throw new Error(claimed.message || 'Could not prepare your coupon.');
       showTapCoupon({
         ...baseResult,
@@ -727,7 +759,7 @@ export function mount(container) {
     bestCombo = 0;
     comboEl.textContent = 'x00';
     tapCountEl.textContent = '00';
-    discountEl.textContent = '0';
+    discountEl.textContent = '3';
     game.style.setProperty('--flow', '0');
     game.style.setProperty('--cup-fill', '0');
     game.classList.remove('is-flowing');

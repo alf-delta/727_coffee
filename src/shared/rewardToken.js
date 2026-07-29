@@ -42,7 +42,7 @@ export function issueRewardToken(data, secret, ttlMinutes = 20) {
     discountPercent: data.discountPercent,
     couponCode: createCouponCode(),
     issuedAt: now,
-    exp: now + ttlMinutes * 60 * 1000,
+    exp: Number(data.expiresAt) || (now + ttlMinutes * 60 * 1000),
   };
   const payloadB64 = base64url(JSON.stringify(payload));
   const signature = sign(payloadB64, secret);

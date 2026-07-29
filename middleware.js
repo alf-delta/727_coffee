@@ -3,7 +3,7 @@ import { next } from '@vercel/edge';
 /**
  * Runs on every page navigation (not on /api/* or static assets). Assigns a
  * long-lived anonymous uid before the HTML is sent. The chosen game is stored
- * server-side per UTC day, so it cannot be switched by editing cookies.
+ * server-side per café business day, so it cannot be switched by editing cookies.
  */
 export const config = {
   matcher: ['/((?!api/|assets/|.*\\.[\\w]+$).*)'],

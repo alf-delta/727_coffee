@@ -9,9 +9,9 @@ import {
   GAP,
   BASE_WORLD_SPEED_VW_PER_SEC,
   SESSION,
-  INPUT_RATE_LIMITS,
   FIXED_STEP_MS,
   MAX_CATCHUP_STEPS,
+  filterValidFlaps,
   generateObstacleSequence,
   getDifficultyStage,
   getWorldSpeedMultiplier,
@@ -40,6 +40,7 @@ const COLORS = {
 };
 
 const VIRTUAL_WIDTH = 360;
+const FINISH_CELEBRATION_MS = 1700;
 const STAR_FIELD = [
   [19, 49, 2], [47, 94, 1], [72, 35, 1], [104, 68, 2], [137, 26, 1],
   [166, 106, 1], [198, 45, 2], [232, 81, 1], [267, 27, 1], [301, 61, 2],
@@ -59,7 +60,7 @@ function escapeHtml(value) {
  * Live renderer for Flying Syrnik. The server still owns the authoritative
  * replay and reward, while this loop mirrors the shared tuning constants.
  */
-export function mount(container) {
+export function mount(container, options = {}) {
   container.innerHTML = `
     <div class="game" data-phase="loading">
       <div class="game__hud" aria-label="Flight stats">
@@ -73,13 +74,13 @@ export function mount(container) {
         </span>
         <span class="game__hud-chip game__hud-chip--reward">
           <small>REWARD</small>
-          <strong data-hud="discount">~3%</strong>
+          <strong data-hud="discount">3%</strong>
         </span>
       </div>
       <canvas
         class="game__canvas"
         role="img"
-        aria-label="Flying coffee cup game. Tap, click, or press Space to fly through the gates."
+        aria-label="Flying coffee cup game. Tap to fly through the gates."
         tabindex="0"
       ></canvas>
       <div class="game__overlay-text" data-role="prompt" aria-live="polite">
@@ -89,8 +90,6 @@ export function mount(container) {
         </div>
       </div>
       <div class="game__controls" aria-hidden="true">
-        <span>SPACE</span>
-        <b>OR</b>
         <span>TAP</span>
         <i>TO FLY</i>
       </div>
@@ -119,6 +118,7 @@ export function mount(container) {
   const pointerIds = [];
   const visibilityEvents = [];
   const activePointers = new Set();
+  const validFlapTimes = [];
 
   let obstacles = [];
   let y = 0.5;
@@ -133,7 +133,7 @@ export function mount(container) {
   let lastTs = null;
   let accumulatorMs = 0;
   let simulatedTimeMs = 0;
-  let lastAppliedInputMs = 0;
+  let nextValidFlapIndex = 0;
 
   function setPhase(nextPhase) {
     phase = nextPhase;
@@ -185,6 +185,14 @@ export function mount(container) {
       const body = await res.json().catch(() => ({}));
       if (destroyed) return;
       if (!res.ok) {
+        if (body.error === 'phone_verification_required' && options.onVerifyPhone) {
+          options.onVerifyPhone();
+          return;
+        }
+        if (body.error === 'email_verification_or_claim_required' && options.onEmailOffer) {
+          options.onEmailOffer();
+          return;
+        }
         setPhase('error');
         prompt.innerHTML = `
           <div class="game__result-card game__result-card--error">
@@ -242,7 +250,9 @@ export function mount(container) {
   }
 
   function recordInput(event, inputId) {
-    const tMs = performance.now() - sessionStartPerf;
+    // Inputs live on the same fixed-step timeline as the renderer and server
+    // replay, so dropped display frames cannot alter the flight trajectory.
+    const tMs = simulatedTimeMs;
     rawTaps.push(tMs);
     isTrustedFlags.push(event.isTrusted);
     pointerIds.push(inputId);
@@ -258,23 +268,18 @@ export function mount(container) {
       rawTaps.push(0);
       isTrustedFlags.push(event.isTrusted);
       pointerIds.push(inputId);
-      velocity = FLAP_VELOCITY;
+      validFlapTimes.push(0);
       lastTs = null;
       accumulatorMs = 0;
       simulatedTimeMs = 0;
-      lastAppliedInputMs = 0;
       return;
     }
     if (phase !== 'playing') return;
 
     const t = recordInput(event, inputId);
-    const samePrimaryInput = pointerIds[0] === inputId;
-    if (
-      samePrimaryInput
-      && t - lastAppliedInputMs >= INPUT_RATE_LIMITS.minimumIntervalBetweenFlapsMs
-    ) {
-      velocity = FLAP_VELOCITY;
-      lastAppliedInputMs = t;
+    const validFlaps = filterValidFlaps(rawTaps, pointerIds);
+    if (validFlaps.length > validFlapTimes.length) {
+      validFlapTimes.push(validFlaps.at(-1));
     }
   }
 
@@ -314,6 +319,14 @@ export function mount(container) {
   }
 
   function step(simTimeMs, dt) {
+    while (
+      nextValidFlapIndex < validFlapTimes.length
+      && validFlapTimes[nextValidFlapIndex] <= simTimeMs
+    ) {
+      velocity = FLAP_VELOCITY;
+      nextValidFlapIndex += 1;
+    }
+
     const stage = getDifficultyStage(passedObstacles);
     const gravity = Math.min(GRAVITY.initial * stage.speedMultiplier, GRAVITY.maximum);
     velocity += gravity * dt;
@@ -334,7 +347,7 @@ export function mount(container) {
     const characterX = worldDistance;
 
     for (const obstacle of obstacles) {
-      if (obstacle.scored) continue;
+      if (obstacle.scored && obstacle.type !== 'double_gate') continue;
       const left = obstacle.x - OBSTACLE_WIDTH_VW / 2 - CHARACTER_RADIUS_VW;
       const right = obstacle.x + OBSTACLE_WIDTH_VW / 2 + CHARACTER_RADIUS_VW;
 
@@ -625,20 +638,83 @@ export function mount(container) {
     }
   }
 
-  function updateHud(simTimeMs) {
+  function drawFireworks(elapsedMs) {
+    const w = canvas.width;
+    const h = canvas.height;
+    const bursts = [
+      { start: 0, x: 0.24, y: 0.28, color: COLORS.gold, alternate: COLORS.cream },
+      { start: 280, x: 0.73, y: 0.22, color: COLORS.mint, alternate: COLORS.cream },
+      { start: 560, x: 0.48, y: 0.42, color: COLORS.berry, alternate: COLORS.peach },
+      { start: 900, x: 0.82, y: 0.48, color: COLORS.gold, alternate: COLORS.mint },
+      { start: 1120, x: 0.18, y: 0.51, color: COLORS.peach, alternate: COLORS.cream },
+    ];
+
+    for (const burst of bursts) {
+      const age = elapsedMs - burst.start;
+      if (age < 0 || age > 720) continue;
+      const progress = age / 720;
+      const radius = 10 + progress * Math.min(w, h) * 0.17;
+      const fall = progress * progress * 28;
+      const particleSize = progress < 0.45 ? 4 : 3;
+
+      for (let ray = 0; ray < 16; ray += 1) {
+        const angle = (Math.PI * 2 * ray) / 16 + burst.start * 0.001;
+        const color = ray % 2 ? burst.color : burst.alternate;
+        for (let trail = 0; trail < 3; trail += 1) {
+          const trailRadius = radius - trail * 8;
+          if (trailRadius < 4) continue;
+          const x = burst.x * w + Math.cos(angle) * trailRadius;
+          const top = burst.y * h + Math.sin(angle) * trailRadius + fall;
+          pixelRect(
+            x,
+            top,
+            Math.max(2, particleSize - trail),
+            Math.max(2, particleSize - trail),
+            color,
+          );
+        }
+      }
+
+      if (progress < 0.18) {
+        const flashSize = 14 - progress * 40;
+        pixelRect(
+          burst.x * w - flashSize / 2,
+          burst.y * h - flashSize / 2,
+          flashSize,
+          flashSize,
+          COLORS.cream,
+        );
+      }
+    }
+  }
+
+  function playFinishCelebration() {
+    return new Promise((resolve) => {
+      const startedAt = performance.now();
+      const animate = (now) => {
+        if (destroyed) {
+          resolve();
+          return;
+        }
+        const elapsed = now - startedAt;
+        draw(simulatedTimeMs);
+        drawFireworks(elapsed);
+        if (elapsed < FINISH_CELEBRATION_MS) {
+          raf = requestAnimationFrame(animate);
+        } else {
+          resolve();
+        }
+      };
+      raf = requestAnimationFrame(animate);
+    });
+  }
+
+  function updateHud() {
+    const scoring = computeFlappyResult({ passedObstacles });
     const stage = getDifficultyStage(passedObstacles);
     hudStage.textContent = stage.label;
     hudScore.textContent = String(passedObstacles).padStart(2, '0');
-    const preview = computeFlappyResult({
-      passedObstacles,
-      cleanPassRatio: passedObstacles ? cleanPasses / passedObstacles : 0,
-      perfectPassRatio: passedObstacles ? perfectPasses / passedObstacles : 0,
-      longestCleanStreak,
-      survivalSeconds: simTimeMs / 1000,
-      effectiveFlapCount: Math.max(1, rawTaps.length),
-      actualValidFlapCount: Math.max(1, rawTaps.length),
-    });
-    hudDiscount.textContent = `~${Math.min(24, preview.discountPercent)}%`;
+    hudDiscount.textContent = `${scoring.discountPercent}%`;
   }
 
   function loop(ts) {
@@ -659,14 +735,14 @@ export function mount(container) {
     let outcome = { collided: false };
     let steps = 0;
     while (accumulatorMs >= FIXED_STEP_MS && steps < MAX_CATCHUP_STEPS && !outcome.collided) {
-      simulatedTimeMs += FIXED_STEP_MS;
       outcome = step(simulatedTimeMs, FIXED_STEP_MS / 1000);
+      simulatedTimeMs += FIXED_STEP_MS;
       accumulatorMs -= FIXED_STEP_MS;
       steps += 1;
     }
 
     draw(simulatedTimeMs);
-    updateHud(simulatedTimeMs);
+    updateHud();
 
     const realElapsedMs = performance.now() - sessionStartPerf;
     if (outcome.collided || realElapsedMs >= attempt.maxDurationMs) {
@@ -678,40 +754,51 @@ export function mount(container) {
 
   async function finish() {
     if (phase !== 'playing') return;
-    setPhase('result');
+    setPhase('celebrating');
+    const scoring = computeFlappyResult({ passedObstacles });
+    prompt.dataset.pos = 'top';
     prompt.innerHTML = `
-      <div class="game__result-card">
-        <span class="game__eyebrow">RUN COMPLETE</span>
-        <strong>COUNTING BEANS…</strong>
+      <div class="game__finish-callout">
+        <span>FLIGHT COMPLETE</span>
+        <strong>${passedObstacles} GATES · ${scoring.discountPercent}% OFF</strong>
       </div>`;
+    navigator.vibrate?.([30, 40, 30, 80, 45]);
 
-    await new Promise((resolve) => setTimeout(resolve, 360));
-    if (destroyed) return;
-
+    const finishedClientElapsedMs = performance.now() - attemptRequestPerf;
     requestController = new AbortController();
+    const resultPromise = fetch('/api/game/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attemptId: attempt.attemptId,
+        nonce: attempt.nonce,
+        taps: rawTaps,
+        isTrustedFlags,
+        pointerIds,
+        visibilityEvents,
+        // Captured before the celebration so presentation time cannot affect
+        // verification of the actual run.
+        clientElapsedMs: finishedClientElapsedMs,
+        clientClaimedResult: { passedObstacles },
+      }),
+      signal: requestController.signal,
+    })
+      .then(async (res) => ({ result: await res.json().catch(() => ({})) }))
+      .catch((error) => ({ error }));
+
     try {
-      const res = await fetch('/api/game/finish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          attemptId: attempt.attemptId,
-          nonce: attempt.nonce,
-          taps: rawTaps,
-          isTrustedFlags,
-          pointerIds,
-          visibilityEvents,
-          // Includes the pre-flight countdown so it matches the server clock,
-          // while tap timestamps remain relative to actual takeoff.
-          clientElapsedMs: performance.now() - attemptRequestPerf,
-          clientClaimedResult: { passedObstacles },
-        }),
-        signal: requestController.signal,
-      });
-      const result = await res.json().catch(() => ({}));
+      await playFinishCelebration();
       if (destroyed) return;
+      const submission = await resultPromise;
+      if (submission.error) throw submission.error;
+      const result = submission.result;
+      if (destroyed) return;
+      setPhase('result');
       renderResult(result);
     } catch (error) {
       if (destroyed || error.name === 'AbortError') return;
+      setPhase('error');
+      prompt.removeAttribute('data-pos');
       prompt.innerHTML = `
         <div class="game__result-card game__result-card--error">
           <span class="game__eyebrow">CONNECTION LOST</span>
@@ -742,12 +829,27 @@ export function mount(container) {
       const attemptsRemaining = Math.max(0, Number(result.attemptsRemainingToday) || 0);
       const bestAttemptNumber = Math.max(1, Number(result.bestAttemptNumber) || 1);
 
-      if (result.isPractice) {
+      if (result.phoneVerificationRequired) {
+        prompt.innerHTML = `
+          <div class="game__result-card">
+            <span class="game__eyebrow">YOUR BEST RUN IS SAVED</span>
+            <strong class="game__reward">${bestDiscount}% OFF</strong>
+            <button type="button" class="game__pixel-button game__pixel-button--claim" data-role="verify-phone">GET YOUR DISCOUNT COUPON</button>
+          </div>`;
+      } else if (result.emailOfferAvailable) {
+        prompt.innerHTML = `
+          <div class="game__result-card">
+            <span class="game__eyebrow">PHONE VERIFIED</span>
+            <strong class="game__reward">${bestDiscount}% OFF</strong>
+            <span class="game__result-score">ONE MORE RUN COULD WIN A BIGGER DISCOUNT</span>
+            <button type="button" class="game__pixel-button game__pixel-button--claim" data-role="email-offer">CHOOSE YOUR NEXT MOVE</button>
+          </div>`;
+      } else if (result.isPractice) {
         prompt.innerHTML = `
           <div class="game__result-card">
             <span class="game__eyebrow">PRACTICE SCORE</span>
             <strong class="game__reward">${currentDiscount}% OFF</strong>
-            <span class="game__result-score">${passedObstacles} GATES · ${longestCleanStreak} BEST COMBO</span>
+            <span class="game__result-score">${passedObstacles} GATES PASSED</span>
             <button type="button" class="game__pixel-button game__pixel-button--secondary" data-role="again">FLY AGAIN</button>
           </div>`;
       } else if (result.rewardToken && result.couponCode) {
@@ -777,6 +879,8 @@ export function mount(container) {
 
       prompt.querySelector('[data-role="claim"]')?.addEventListener('click', () => showCoupon(result));
       prompt.querySelector('[data-role="claim-now"]')?.addEventListener('click', () => claimBestCoupon(result));
+      prompt.querySelector('[data-role="verify-phone"]')?.addEventListener('click', () => options.onVerifyPhone?.());
+      prompt.querySelector('[data-role="email-offer"]')?.addEventListener('click', () => options.onEmailOffer?.(result.contact));
     }
 
     prompt.querySelector('[data-role="again"]')?.addEventListener('click', resetAndStart);
@@ -795,6 +899,10 @@ export function mount(container) {
         body: JSON.stringify({ game: 'flappy' }),
       });
       const claimed = await res.json().catch(() => ({}));
+      if (claimed.error === 'phone_verification_required' && options.onVerifyPhone) {
+        options.onVerifyPhone();
+        return;
+      }
       if (!res.ok || !claimed.valid) throw new Error(claimed.message || 'Could not prepare your coupon.');
       showCoupon({
         ...baseResult,
@@ -922,12 +1030,16 @@ export function mount(container) {
     rawTaps.length = 0;
     isTrustedFlags.length = 0;
     pointerIds.length = 0;
+    validFlapTimes.length = 0;
     visibilityEvents.length = 0;
     activePointers.clear();
     lastTs = null;
     accumulatorMs = 0;
     simulatedTimeMs = 0;
-    lastAppliedInputMs = 0;
+    nextValidFlapIndex = 0;
+    hudStage.textContent = 'TAKEOFF';
+    hudScore.textContent = '00';
+    hudDiscount.textContent = '3%';
     start();
   }
 

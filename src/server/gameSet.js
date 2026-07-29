@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { kv } from './kv.js';
-import { MAX_ATTEMPTS_PER_DAY, REWARD_TOKEN_TTL_MINUTES } from './config.js';
 import { secondsUntilNextUTCMidnight } from './date.js';
 import { issueRewardToken } from '../shared/rewardToken.js';
 
@@ -39,7 +38,7 @@ export async function getBestResult(uid, date) {
 
 export async function getAttemptsUsed(uid, date) {
   const count = Number(await kv.get(`attempts:${uid}:${date}`)) || 0;
-  return Math.min(MAX_ATTEMPTS_PER_DAY, Math.max(0, count));
+  return Math.max(0, count);
 }
 
 function publicReward(reward) {
@@ -47,6 +46,7 @@ function publicReward(reward) {
     rewardToken: reward.rewardToken,
     couponCode: reward.couponCode,
     couponExpiresAt: reward.couponExpiresAt,
+    couponId: reward.couponId,
     discountPercent: reward.discountPercent,
     finalScore: reward.finalScore,
     bestAttemptNumber: reward.bestAttemptNumber,
@@ -54,7 +54,7 @@ function publicReward(reward) {
   };
 }
 
-export async function claimBestReward(uid, date) {
+export async function claimBestReward(uid, date, tokenUid = uid) {
   const key = rewardedKey(uid, date);
   const existing = await kv.get(key);
   if (existing?.status === 'issued') {
@@ -92,20 +92,21 @@ export async function claimBestReward(uid, date) {
   try {
     const { token, payload } = issueRewardToken(
       {
-        uid,
+        uid: tokenUid,
         attemptId: best.attemptId,
         game: best.game,
         discountPercent: best.discountPercent,
+        expiresAt: Date.now() + dayTtlSeconds * 1000,
       },
       secret,
-      REWARD_TOKEN_TTL_MINUTES,
     );
-    const couponTtlSeconds = REWARD_TOKEN_TTL_MINUTES * 60;
+    const couponTtlSeconds = dayTtlSeconds;
     const attemptsUsed = await getAttemptsUsed(uid, date);
     const reward = {
       status: 'issued',
       rewardToken: token,
       couponCode: payload.couponCode,
+      couponId: payload.jti,
       couponExpiresAt: payload.exp,
       discountPercent: best.discountPercent,
       finalScore: best.finalScore,
@@ -117,7 +118,8 @@ export async function claimBestReward(uid, date) {
       `coupon:${payload.jti}`,
       {
         jti: payload.jti,
-        uid,
+        uid: tokenUid,
+        subject: uid,
         attemptId: best.attemptId,
         game: best.game,
         discountPercent: best.discountPercent,

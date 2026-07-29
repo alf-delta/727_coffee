@@ -41,6 +41,9 @@ export function devApiPlugin() {
           '/game/claim': '/api/game/claim.js',
           '/coupon/redeem': '/api/coupon/redeem.js',
           '/coupon/status': '/api/coupon/status.js',
+          '/consent': '/api/consent.js',
+          '/verification/send': '/api/verification/send.js',
+          '/verification/check': '/api/verification/check.js',
           '/stats': '/api/stats.js',
         };
         const pathname = req.url.split('?')[0];
