@@ -1,5 +1,9 @@
 import { createHmac, randomInt, randomUUID } from 'node:crypto';
-import { UID_COOKIE, VERIFICATION_TTL_SECONDS } from '../../src/server/config.js';
+import {
+  EMAIL_ONLY_CONTACT_MODE,
+  UID_COOKIE,
+  VERIFICATION_TTL_SECONDS,
+} from '../../src/server/config.js';
 import {
   contactIdentityHash,
   encryptContact,
@@ -32,7 +36,35 @@ export default async function handler(req, res) {
   const channel = body.channel;
   const date = todayUTC();
   const player = await getPlayerContext(uid, date);
-  if (channel === 'email') {
+  const best = await kv.get(`game-best:${player.subject}:${date}`);
+  const reward = await kv.get(`rewarded:${player.subject}:${date}`);
+
+  if (EMAIL_ONLY_CONTACT_MODE) {
+    if (channel !== 'email') {
+      return res.status(400).json({
+        error: 'verification_channel_unavailable',
+        message: 'Email verification is currently available for coupon delivery.',
+      });
+    }
+    if (player.verified) {
+      return res.status(409).json({
+        error: 'email_already_verified',
+        message: 'Your email is already verified.',
+      });
+    }
+    if (!best) {
+      return res.status(403).json({
+        error: 'verified_result_required',
+        message: 'Complete a verified run before requesting a coupon.',
+      });
+    }
+    if (reward) {
+      return res.status(409).json({
+        error: 'coupon_already_claimed',
+        message: 'Your coupon has already been issued for today.',
+      });
+    }
+  } else if (channel === 'email') {
     if (!player.phoneVerified) {
       return res.status(403).json({
         error: 'phone_verification_required',
@@ -45,7 +77,7 @@ export default async function handler(req, res) {
         message: 'Your extra run is already unlocked.',
       });
     }
-    if (await kv.get(`rewarded:${player.subject}:${date}`)) {
+    if (reward) {
       return res.status(409).json({
         error: 'coupon_already_claimed',
         message: 'Your coupon has already been issued for today.',
@@ -56,10 +88,15 @@ export default async function handler(req, res) {
       error: 'phone_already_verified',
       message: 'Your mobile number is already verified.',
     });
-  } else if (channel === 'sms' && !(await kv.get(`game-best:${player.subject}:${date}`))) {
+  } else if (channel === 'sms' && !best) {
     return res.status(403).json({
       error: 'verified_result_required',
       message: 'Complete a verified run before requesting a coupon.',
+    });
+  } else if (channel !== 'sms') {
+    return res.status(400).json({
+      error: 'invalid_channel',
+      message: 'Choose a valid verification method.',
     });
   }
 

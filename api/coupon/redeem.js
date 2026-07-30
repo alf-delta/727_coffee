@@ -1,13 +1,9 @@
-import { timingSafeEqual } from 'node:crypto';
 import { kv } from '../../src/server/kv.js';
 import { readJsonBody } from '../../src/server/request.js';
 import { todayUTC } from '../../src/server/date.js';
-
-function sameSecret(received, expected) {
-  const a = Buffer.from(String(received || ''));
-  const b = Buffer.from(String(expected || ''));
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+import { hasCheckerSession } from '../../src/server/checkerAuth.js';
+import { revealContact } from '../../src/server/contactIdentity.js';
+import { BUSINESS_TIME_ZONE } from '../../src/server/config.js';
 
 function normalizeCode(value) {
   return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -16,8 +12,7 @@ function normalizeCode(value) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
 
-  const staffPin = process.env.COUPON_STAFF_PIN;
-  if (!staffPin) {
+  if (!process.env.COUPON_STAFF_PIN) {
     return res.status(503).json({
       error: 'redemption_not_configured',
       message: 'Coupon redemption is not configured for this location.',
@@ -25,8 +20,11 @@ export default async function handler(req, res) {
   }
 
   const body = await readJsonBody(req);
-  if (!sameSecret(body.pin, staffPin)) {
-    return res.status(403).json({ error: 'invalid_staff_pin', message: 'Incorrect staff PIN.' });
+  if (!(await hasCheckerSession(req))) {
+    return res.status(401).json({
+      error: 'checker_authentication_required',
+      message: 'Staff sign-in is required.',
+    });
   }
 
   const code = normalizeCode(body.code);
@@ -42,6 +40,15 @@ export default async function handler(req, res) {
   const coupon = await kv.get(`coupon:${jti}`);
   if (!coupon || Date.now() > coupon.expiresAt) {
     return res.status(410).json({ error: 'coupon_expired', message: 'This coupon has expired.' });
+  }
+
+  let email = null;
+  if (coupon.contactChannel === 'email' && coupon.sealedContactValue) {
+    try {
+      email = revealContact({ sealedValue: coupon.sealedContactValue });
+    } catch (error) {
+      console.error('[coupon-contact]', error);
+    }
   }
 
   const ttlSeconds = Math.max(1, Math.ceil((coupon.expiresAt - Date.now()) / 1000));
@@ -67,6 +74,14 @@ export default async function handler(req, res) {
     status: 'redeemed',
     discountPercent: coupon.discountPercent,
     game: coupon.game,
+    email,
+    maskedEmail: coupon.contactChannel === 'email'
+      ? coupon.contactMasked
+      : null,
+    issuedAt: coupon.issuedAt,
+    expiresAt: coupon.expiresAt,
+    timeZone: BUSINESS_TIME_ZONE,
+    remainingSeconds: Math.max(0, Math.floor((coupon.expiresAt - redeemedAt) / 1000)),
     redeemedAt,
   });
 }

@@ -22,6 +22,7 @@ export function mountContactVerification(container, {
   onPlay,
 } = {}) {
   let destroyed = false;
+  const emailCouponMode = initialStep === 'email-coupon';
 
   function renderPhoneStep() {
     if (destroyed) return;
@@ -91,6 +92,40 @@ export function mountContactVerification(container, {
     bindSendForm('email');
     container.querySelector('[data-action="back-to-choice"]')
       ?.addEventListener('click', () => renderPostPhoneStep());
+  }
+
+  function renderEmailCouponStep() {
+    if (destroyed) return;
+    container.innerHTML = `
+      <section class="game-lobby game-lobby--verification">
+        <header class="game-lobby__header">
+          <span class="game-lobby__eyebrow">YOUR BEST RUN IS SAVED</span>
+          <strong>GET YOUR COUPON</strong>
+          <span>Enter your email and we’ll send a verification code. Your coupon will be delivered after confirmation.</span>
+        </header>
+
+        <form class="contact-verify" data-step="email-coupon">
+          <label class="contact-verify__field">
+            <span>EMAIL ADDRESS</span>
+            <input
+              name="contact"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required
+            />
+          </label>
+          <p class="contact-verify__disclosure">
+            We use this email only to verify today’s game limit and deliver the coupon you request.
+          </p>
+          <p class="contact-verify__error" role="alert" hidden></p>
+          <button class="contact-verify__submit" type="submit">EMAIL ME A CODE →</button>
+          <p class="contact-verify__fineprint">No marketing subscription is required.</p>
+        </form>
+      </section>`;
+
+    bindSendForm('email');
   }
 
   function bindSendForm(channel) {
@@ -165,7 +200,9 @@ export function mountContactVerification(container, {
     });
     form.querySelector('[data-action="change-contact"]').addEventListener(
       'click',
-      isPhone ? renderPhoneStep : renderEmailStep,
+      isPhone
+        ? renderPhoneStep
+        : (emailCouponMode ? renderEmailCouponStep : renderEmailStep),
     );
 
     form.addEventListener('submit', async (event) => {
@@ -188,6 +225,9 @@ export function mountContactVerification(container, {
         if (verified.verificationType === 'phone') {
           contact = verified.contact;
           renderPostPhoneStep();
+        } else if (emailCouponMode) {
+          contact = verified.contact;
+          await claimBest();
         } else {
           renderEmailSuccess(verified);
         }
@@ -245,12 +285,44 @@ export function mountContactVerification(container, {
     });
   }
 
-  async function claimBest(event) {
-    const button = event.currentTarget;
+  function renderClaimLoading() {
+    if (destroyed) return;
+    container.innerHTML = `
+      <section class="game-lobby game-lobby--verification game-lobby--verified" aria-live="polite">
+        <header class="game-lobby__header">
+          <span class="game-lobby__eyebrow">EMAIL VERIFIED</span>
+          <strong>PREPARING YOUR COUPON…</strong>
+          <span>We’re locking in your best result and sending it now.</span>
+        </header>
+        <div class="contact-verify__success-mark" aria-hidden="true">✓</div>
+      </section>`;
+  }
+
+  function renderClaimError(message) {
+    if (destroyed) return;
+    container.innerHTML = `
+      <section class="game-lobby game-lobby--verification">
+        <header class="game-lobby__header">
+          <span class="game-lobby__eyebrow">EMAIL VERIFIED</span>
+          <strong>COUPON NOT READY</strong>
+          <span>${escapeHtml(message || 'We could not prepare your coupon. Please try again.')}</span>
+        </header>
+        <button type="button" class="contact-verify__submit" data-action="retry-claim">TRY AGAIN →</button>
+      </section>`;
+    container.querySelector('[data-action="retry-claim"]')
+      ?.addEventListener('click', () => claimBest());
+  }
+
+  async function claimBest(event = null) {
+    const button = event?.currentTarget || null;
     const error = container.querySelector('.contact-verify__error');
-    button.disabled = true;
-    button.textContent = 'SENDING COUPON…';
-    error.hidden = true;
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'SENDING COUPON…';
+    } else {
+      renderClaimLoading();
+    }
+    if (error) error.hidden = true;
     try {
       const reward = await readResponse(await fetch('/api/game/claim', {
         method: 'POST',
@@ -259,6 +331,10 @@ export function mountContactVerification(container, {
       }));
       renderCoupon(reward);
     } catch (err) {
+      if (!button || !error) {
+        renderClaimError(err.message);
+        return;
+      }
       error.textContent = err.message;
       error.hidden = false;
       button.disabled = false;
@@ -279,12 +355,16 @@ export function mountContactVerification(container, {
           <span>${code.slice(0, 4)}</span><span>${code.slice(4)}</span>
         </div>
         <p>Show this code to your barista before payment. It expires at the end of today.</p>
-        ${deliveredTo ? `<small>${reward.delivery?.delivered ? 'TEXTED TO' : 'SAVE THIS CODE · DELIVERY TO'} ${escapeHtml(deliveredTo)}</small>` : ''}
+        ${deliveredTo ? `<small>${reward.delivery?.delivered
+          ? (reward.delivery?.channel === 'email' ? 'EMAILED TO' : 'TEXTED TO')
+          : 'SAVE THIS CODE · DELIVERY TO'} ${escapeHtml(deliveredTo)}</small>` : ''}
       </section>`;
   }
 
   if (initialStep === 'post-phone') renderPostPhoneStep();
   else if (initialStep === 'email') renderEmailStep();
+  else if (initialStep === 'email-coupon') renderEmailCouponStep();
+  else if (initialStep === 'claim') claimBest();
   else renderPhoneStep();
 
   return {

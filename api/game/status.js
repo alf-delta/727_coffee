@@ -1,5 +1,9 @@
 import { parseCookies } from '../../src/server/request.js';
-import { BASE_ATTEMPTS_PER_DAY, UID_COOKIE } from '../../src/server/config.js';
+import {
+  BASE_ATTEMPTS_PER_DAY,
+  EMAIL_ONLY_CONTACT_MODE,
+  UID_COOKIE,
+} from '../../src/server/config.js';
 import { todayUTC } from '../../src/server/date.js';
 import { getDailyGameChoice } from '../../src/server/gameChoice.js';
 import { getAttemptsUsed } from '../../src/server/gameSet.js';
@@ -39,11 +43,23 @@ export default async function handler(req, res) {
     kv.get(`game-best:${context.subject}:${date}`),
   ]);
   const attemptsRemainingToday = Math.max(0, context.attemptLimit - attemptsUsed);
-  const phoneVerificationRequired = !context.phoneVerified && attemptsUsed >= BASE_ATTEMPTS_PER_DAY;
-  const postPhoneActionRequired = context.phoneVerified
+  const contactVerificationRequired = EMAIL_ONLY_CONTACT_MODE
+    && !context.verified
+    && attemptsUsed >= BASE_ATTEMPTS_PER_DAY
+    && Boolean(best);
+  const phoneVerificationRequired = !EMAIL_ONLY_CONTACT_MODE
+    && !context.phoneVerified
+    && attemptsUsed >= BASE_ATTEMPTS_PER_DAY;
+  const postPhoneActionRequired = !EMAIL_ONLY_CONTACT_MODE
+    && context.phoneVerified
     && !context.emailVerified
     && !reward
     && Boolean(best);
+  const couponClaimRequired = EMAIL_ONLY_CONTACT_MODE
+    && context.verified
+    && !reward
+    && Boolean(best)
+    && attemptsRemainingToday === 0;
 
   return res.status(200).json({
     selectedGame,
@@ -55,9 +71,17 @@ export default async function handler(req, res) {
     emailVerified: context.emailVerified,
     contact: publicContact(context.contact),
     emailContact: publicContact(context.emailContact),
+    verificationChannel: EMAIL_ONLY_CONTACT_MODE ? 'email' : 'sms',
+    contactVerificationRequired,
+    emailVerificationRequired: contactVerificationRequired,
     phoneVerificationRequired,
     postPhoneActionRequired,
-    exhausted: Boolean(reward) || (context.emailVerified && attemptsRemainingToday === 0),
-    canChoose: !selectedGame && attemptsRemainingToday > 0 && !phoneVerificationRequired,
+    couponClaimRequired,
+    exhausted: Boolean(reward)
+      || (!EMAIL_ONLY_CONTACT_MODE && context.emailVerified && attemptsRemainingToday === 0),
+    canChoose: !selectedGame
+      && attemptsRemainingToday > 0
+      && !contactVerificationRequired
+      && !phoneVerificationRequired,
   });
 }

@@ -29,8 +29,8 @@ function termsDocument() {
         <ul>
           <li>You may select one available game per promotional day.</li>
           <li>You receive up to three standard attempts for that selected game.</li>
-          <li>A verified mobile number is required to receive a coupon and connects the daily limit across devices using that number.</li>
-          <li>After mobile verification, you may optionally verify an email address to unlock one additional attempt before the coupon is issued.</li>
+          <li>A verified email address is required to receive a coupon and connects the daily limit across devices using that address.</li>
+          <li>Verifying an email does not add attempts. Each player receives up to three attempts per day in one selected game.</li>
           <li>Your best server-verified result determines the discount offered for the set.</li>
           <li>Attempts that cannot be verified may be rejected or restored.</li>
           <li>Automated play, tampering, fabricated input, duplicate accounts, and other attempts to bypass limits are prohibited.</li>
@@ -49,7 +49,7 @@ function termsDocument() {
 
       <section>
         <h3>6. Messages</h3>
-        <p>If you later request phone or email verification, we may send the verification code and coupon you requested. Promotional messages require a separate optional consent and are not required to play or receive a coupon.</p>
+        <p>If you request email verification, we may send the verification code and coupon you requested. Promotional messages require a separate optional consent and are not required to play or receive a coupon.</p>
       </section>
 
       <section>
@@ -70,7 +70,7 @@ function privacyDocument() {
 
       <section>
         <h3>1. Information we collect</h3>
-        <p>We collect a device identifier stored in a cookie, game activity, attempts, scores, coupon status, and basic technical request information. If you choose to provide a phone number or email address for verification or coupon delivery, we also process that information.</p>
+        <p>We collect a device identifier stored in a cookie, game activity, attempts, scores, coupon status, and basic technical request information. If you provide an email address for verification or coupon delivery, we also process that information.</p>
       </section>
 
       <section>
@@ -85,7 +85,7 @@ function privacyDocument() {
 
       <section>
         <h3>4. Service providers and sharing</h3>
-        <p>We may use hosting, database, security, analytics, and messaging providers to operate the service. They process information only for the services they provide to us. We do not sell phone numbers, email addresses, or game activity.</p>
+        <p>We may use hosting, database, security, analytics, and email delivery providers to operate the service. They process information only for the services they provide to us. We do not sell email addresses or game activity.</p>
       </section>
 
       <section>

@@ -1,11 +1,13 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
   BASE_ATTEMPTS_PER_DAY,
+  EMAIL_ONLY_CONTACT_MODE,
   UID_COOKIE,
   VERIFIED_ATTEMPTS_PER_DAY,
 } from '../../src/server/config.js';
 import {
   decryptContact,
+  linkVerifiedEmail,
   linkVerifiedEmailBonus,
   linkVerifiedPhone,
   publicContact,
@@ -87,7 +89,18 @@ export default async function handler(req, res) {
   let contact;
   let emailContact = null;
   try {
-    if (challenge.channel === 'sms') {
+    if (EMAIL_ONLY_CONTACT_MODE) {
+      if (challenge.channel !== 'email') {
+        return res.status(400).json({
+          error: 'verification_channel_unavailable',
+          message: 'Email verification is currently available for coupon delivery.',
+        });
+      }
+      contact = await linkVerifiedEmail(uid, date, {
+        normalizedValue: destination,
+      });
+      emailContact = contact;
+    } else if (challenge.channel === 'sms') {
       contact = await linkVerifiedPhone(uid, date, {
         normalizedValue: destination,
       });
@@ -117,7 +130,7 @@ export default async function handler(req, res) {
 
   const subject = `identity:${contact.identityHash}`;
   const attemptsUsed = await getAttemptsUsed(subject, date);
-  const attemptLimit = emailContact
+  const attemptLimit = !EMAIL_ONLY_CONTACT_MODE && emailContact
     ? VERIFIED_ATTEMPTS_PER_DAY
     : BASE_ATTEMPTS_PER_DAY;
   return res.status(200).json({
@@ -127,6 +140,8 @@ export default async function handler(req, res) {
     emailContact: publicContact(emailContact),
     attemptsUsed,
     attemptsRemainingToday: Math.max(0, attemptLimit - attemptsUsed),
-    bonusAttemptUnlocked: Boolean(emailContact) && attemptsUsed < VERIFIED_ATTEMPTS_PER_DAY,
+    bonusAttemptUnlocked: !EMAIL_ONLY_CONTACT_MODE
+      && Boolean(emailContact)
+      && attemptsUsed < VERIFIED_ATTEMPTS_PER_DAY,
   });
 }

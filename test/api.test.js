@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 process.env.REWARD_TOKEN_SECRET = 'test-secret-do-not-use-in-prod';
 process.env.COUPON_STAFF_PIN = '2468';
@@ -11,27 +11,36 @@ import finishHandler from '../api/game/finish.js';
 import claimHandler from '../api/game/claim.js';
 import redeemCouponHandler from '../api/coupon/redeem.js';
 import couponStatusHandler from '../api/coupon/status.js';
+import checkerLoginHandler from '../api/checker/login.js';
 import consentHandler from '../api/consent.js';
 import sendVerificationHandler from '../api/verification/send.js';
 import checkVerificationHandler from '../api/verification/check.js';
 import {
   contactIdentityHash,
-  normalizePhone,
+  normalizeEmail,
 } from '../src/server/contactIdentity.js';
 import { kv } from '../src/server/kv.js';
 import { LEGAL_VERSION } from '../src/shared/legal.js';
 import { computeFlappyProgress } from '../src/shared/flappyProgress.js';
 import { computeTapProgress } from '../src/shared/tapProgress.js';
 
-function mockReq({ uid, body }) {
-  const cookie = uid ? `mb_uid=${uid}` : '';
-  return { method: 'POST', headers: { cookie }, body };
+function mockReq({ uid, body, cookie = '', method = 'POST' }) {
+  const cookies = [
+    uid ? `mb_uid=${uid}` : '',
+    cookie,
+  ].filter(Boolean).join('; ');
+  return { method, headers: { cookie: cookies }, body };
 }
 
 function mockRes() {
   const res = {
     statusCode: null,
     jsonBody: null,
+    headers: {},
+    setHeader(name, value) {
+      res.headers[String(name).toLowerCase()] = value;
+      return res;
+    },
     status(code) {
       res.statusCode = code;
       return res;
@@ -104,8 +113,8 @@ async function claimGame(uid, game) {
 }
 
 async function sendVerification(uid, {
-  channel = 'sms',
-  value = `+1212${randomInt(1000000, 10000000)}`,
+  channel = 'email',
+  value = `${randomUUID()}@example.com`,
 } = {}) {
   await acceptLegal(uid);
   const res = mockRes();
@@ -136,13 +145,6 @@ async function verifyContact(uid, options = {}) {
   assert.equal(checked.statusCode, 200);
   assert.equal(checked.jsonBody.verified, true);
   return checked;
-}
-
-async function verifyPhone(uid, value) {
-  return verifyContact(uid, {
-    channel: 'sms',
-    ...(value ? { value } : {}),
-  });
 }
 
 async function verifyEmail(uid, value = `${randomUUID()}@example.com`) {
@@ -182,12 +184,12 @@ test('api: start issues an attempt after consent', async () => {
   assert.equal(res.jsonBody.rewardEligible, true);
 });
 
-test('api: a player must verify a phone before deciding what happens after run three', async () => {
+test('api: a player must verify an email to receive a coupon after run three', async () => {
   const uid = randomUUID();
   let last;
   for (let i = 0; i < 4; i++) last = await startGame(uid, 'tap');
   assert.equal(last.statusCode, 403);
-  assert.equal(last.jsonBody.error, 'phone_verification_required');
+  assert.equal(last.jsonBody.error, 'email_verification_required');
 });
 
 test('api: the first game started is locked for the rest of the day', async () => {
@@ -202,7 +204,7 @@ test('api: the first game started is locked for the rest of the day', async () =
   assert.equal(otherGame.jsonBody.selectedGame, 'flappy');
 });
 
-test('api: game status asks for phone verification only after three starts', async () => {
+test('api: game status asks for email verification after three completed runs', async () => {
   const uid = randomUUID();
 
   const fresh = await getGameStatus(uid);
@@ -215,6 +217,8 @@ test('api: game status asks for phone verification only after three starts', asy
   for (let i = 0; i < 3; i += 1) {
     const start = await startGame(uid, 'tap');
     assert.equal(start.statusCode, 200);
+    const finish = await finishGame(uid, start, [500, 700, 900, 1100, 1300, 1500]);
+    assert.equal(finish.jsonBody.valid, true);
   }
 
   const verificationGate = await getGameStatus(uid);
@@ -222,7 +226,10 @@ test('api: game status asks for phone verification only after three starts', asy
   assert.equal(verificationGate.jsonBody.selectedGame, 'tap');
   assert.equal(verificationGate.jsonBody.attemptsRemainingToday, 0);
   assert.equal(verificationGate.jsonBody.canChoose, false);
-  assert.equal(verificationGate.jsonBody.phoneVerificationRequired, true);
+  assert.equal(verificationGate.jsonBody.contactVerificationRequired, true);
+  assert.equal(verificationGate.jsonBody.emailVerificationRequired, true);
+  assert.equal(verificationGate.jsonBody.verificationChannel, 'email');
+  assert.equal(verificationGate.jsonBody.phoneVerificationRequired, false);
   assert.equal(verificationGate.jsonBody.phoneVerified, false);
   assert.equal(verificationGate.jsonBody.emailVerified, false);
   assert.equal(verificationGate.jsonBody.exhausted, false);
@@ -242,9 +249,9 @@ test('api: a player can claim the current best result before using all attempts'
 
   const blockedClaim = await claimGame(uid, 'tap');
   assert.equal(blockedClaim.statusCode, 403);
-  assert.equal(blockedClaim.jsonBody.error, 'phone_verification_required');
+  assert.equal(blockedClaim.jsonBody.error, 'email_verification_required');
 
-  const verified = await verifyPhone(uid);
+  const verified = await verifyEmail(uid);
   assert.equal(verified.jsonBody.attemptsUsed, 1);
   assert.equal(verified.jsonBody.attemptsRemainingToday, 2);
   assert.equal(verified.jsonBody.bonusAttemptUnlocked, false);
@@ -254,6 +261,8 @@ test('api: a player can claim the current best result before using all attempts'
   assert.ok(claim.jsonBody.rewardToken);
   assert.match(claim.jsonBody.couponCode, /^[A-Z2-9]{8}$/);
   assert.ok(claim.jsonBody.couponExpiresAt > Date.now());
+  assert.equal(claim.jsonBody.delivery.delivered, true);
+  assert.equal(claim.jsonBody.delivery.channel, 'email');
 
   const start2 = await startGame(uid, 'tap');
   const finish2 = await finishGame(uid, start2, [500, 700, 900, 1100, 1300, 1500]);
@@ -262,7 +271,7 @@ test('api: a player can claim the current best result before using all attempts'
   assert.equal(finish2.jsonBody.isPractice, true);
 });
 
-test('api: phone enables coupon delivery, then email unlocks one bonus run', async () => {
+test('api: email verification delivers the best coupon without a bonus run', async () => {
   const uid = randomUUID();
   const lowTaps = [700, 1700, 2700, 3700, 4700, 5700];
   const highTaps = Array.from({ length: 48 }, (_, i) => 300 + i * 150 + (i % 5) * 7);
@@ -279,44 +288,36 @@ test('api: phone enables coupon delivery, then email unlocks one bonus run', asy
   assert.equal(finish3.jsonBody.valid, true);
   assert.ok(finish2.jsonBody.currentDiscountPercent > finish1.jsonBody.currentDiscountPercent);
   assert.equal(finish3.jsonBody.attemptsRemainingToday, 0);
-  assert.equal(finish3.jsonBody.phoneVerificationRequired, true);
+  assert.equal(finish3.jsonBody.contactVerificationRequired, true);
+  assert.equal(finish3.jsonBody.emailVerificationRequired, true);
+  assert.equal(finish3.jsonBody.phoneVerificationRequired, false);
   assert.equal(finish3.jsonBody.setComplete, false);
   assert.equal(finish3.jsonBody.bestAttemptNumber, 2);
   assert.equal(finish3.jsonBody.bestDiscountPercent, finish2.jsonBody.currentDiscountPercent);
   assert.equal(finish3.jsonBody.rewardToken, null);
   assert.equal(finish3.jsonBody.discountPercent, finish1.jsonBody.currentDiscountPercent);
 
-  const phone = await verifyPhone(uid);
-  assert.equal(phone.jsonBody.verificationType, 'phone');
-  assert.equal(phone.jsonBody.attemptsUsed, 3);
-  assert.equal(phone.jsonBody.attemptsRemainingToday, 0);
-  assert.equal(phone.jsonBody.bonusAttemptUnlocked, false);
-
-  const postPhoneStatus = await getGameStatus(uid);
-  assert.equal(postPhoneStatus.jsonBody.postPhoneActionRequired, true);
-  assert.equal(postPhoneStatus.jsonBody.emailVerified, false);
-
   const email = await verifyEmail(uid);
   assert.equal(email.jsonBody.verificationType, 'email');
   assert.equal(email.jsonBody.attemptsUsed, 3);
-  assert.equal(email.jsonBody.attemptsRemainingToday, 1);
-  assert.equal(email.jsonBody.bonusAttemptUnlocked, true);
+  assert.equal(email.jsonBody.attemptsRemainingToday, 0);
+  assert.equal(email.jsonBody.bonusAttemptUnlocked, false);
 
-  const start4 = await startGame(uid, 'tap');
-  assert.equal(start4.statusCode, 200);
-  assert.equal(start4.jsonBody.attemptsRemainingToday, 0);
-  const finish4 = await finishGame(uid, start4, lowTaps);
-  assert.equal(finish4.jsonBody.valid, true);
-  assert.equal(finish4.jsonBody.setComplete, true);
-  assert.equal(finish4.jsonBody.bestAttemptNumber, 2);
-  assert.equal(finish4.jsonBody.bestDiscountPercent, finish2.jsonBody.currentDiscountPercent);
-  assert.ok(finish4.jsonBody.rewardToken);
-  assert.equal(finish4.jsonBody.delivery.delivered, true);
-  assert.equal(finish4.jsonBody.delivery.channel, 'sms');
+  const verifiedStatus = await getGameStatus(uid);
+  assert.equal(verifiedStatus.jsonBody.postPhoneActionRequired, false);
+  assert.equal(verifiedStatus.jsonBody.couponClaimRequired, true);
+  assert.equal(verifiedStatus.jsonBody.attemptLimit, 3);
 
-  const blockedFifth = await startGame(uid, 'tap');
-  assert.equal(blockedFifth.statusCode, 403);
-  assert.equal(blockedFifth.jsonBody.error, 'daily_limit_reached');
+  const claim = await claimGame(uid, 'tap');
+  assert.equal(claim.statusCode, 200);
+  assert.equal(claim.jsonBody.bestAttemptNumber, 2);
+  assert.equal(claim.jsonBody.discountPercent, finish2.jsonBody.currentDiscountPercent);
+  assert.equal(claim.jsonBody.delivery.delivered, true);
+  assert.equal(claim.jsonBody.delivery.channel, 'email');
+
+  const blockedFourth = await startGame(uid, 'tap');
+  assert.equal(blockedFourth.statusCode, 403);
+  assert.equal(blockedFourth.jsonBody.error, 'daily_limit_reached');
 });
 
 test('api: an incorrect verification code does not unlock an identity', async () => {
@@ -346,18 +347,18 @@ test('api: an incorrect verification code does not unlock an identity', async ()
   assert.equal(status.jsonBody.attemptLimit, 3);
 });
 
-test('api: email cannot unlock a bonus before phone verification', async () => {
+test('api: email verification is unavailable before a verified result exists', async () => {
   const uid = randomUUID();
   const sent = await sendVerification(uid, {
     channel: 'email',
     value: `${randomUUID()}@example.com`,
   });
   assert.equal(sent.statusCode, 403);
-  assert.equal(sent.jsonBody.error, 'phone_verification_required');
+  assert.equal(sent.jsonBody.error, 'verified_result_required');
 });
 
-test('api: the same verified phone shares daily progress across devices', async () => {
-  const phone = `+1212${randomInt(1000000, 10000000)}`;
+test('api: the same verified email shares daily progress across devices', async () => {
+  const email = `${randomUUID()}@example.com`;
   const firstUid = randomUUID();
   const secondUid = randomUUID();
 
@@ -365,16 +366,16 @@ test('api: the same verified phone shares daily progress across devices', async 
   assert.equal(firstStart.statusCode, 200);
   const firstFinish = await finishGame(firstUid, firstStart, []);
   assert.equal(firstFinish.jsonBody.valid, true);
-  await verifyPhone(firstUid, phone);
+  await verifyEmail(firstUid, email);
 
-  const identityHash = contactIdentityHash('sms', normalizePhone(phone));
+  const identityHash = contactIdentityHash('email', normalizeEmail(email));
   await kv.del(`verify-cooldown:${identityHash}`);
 
   const secondStart = await startGame(secondUid, 'flappy');
   assert.equal(secondStart.statusCode, 200);
   const secondFinish = await finishGame(secondUid, secondStart, []);
   assert.equal(secondFinish.jsonBody.valid, true);
-  const secondVerification = await verifyPhone(secondUid, phone);
+  const secondVerification = await verifyEmail(secondUid, email);
   assert.equal(secondVerification.jsonBody.attemptsUsed, 1);
   assert.equal(secondVerification.jsonBody.attemptsRemainingToday, 2);
 
@@ -520,16 +521,42 @@ test('api: coupon can be redeemed exactly once and reports terminal status', asy
   const start = await startGame(uid, 'tap');
   const finish = await finishGame(uid, start, [500, 700, 900, 1100, 1300, 1500]);
   assert.equal(finish.jsonBody.valid, true);
-  await verifyPhone(uid);
+  const couponEmail = `${randomUUID()}@example.com`;
+  await verifyEmail(uid, couponEmail);
   const claim = await claimGame(uid, 'tap');
   assert.equal(claim.jsonBody.valid, true);
+
+  const unauthenticated = mockRes();
+  await redeemCouponHandler(
+    mockReq({ body: { code: claim.jsonBody.couponCode } }),
+    unauthenticated,
+  );
+  assert.equal(unauthenticated.statusCode, 401);
+  assert.equal(unauthenticated.jsonBody.error, 'checker_authentication_required');
+
+  const badLogin = mockRes();
+  await checkerLoginHandler(
+    mockReq({ body: { password: 'wrong-password' } }),
+    badLogin,
+  );
+  assert.equal(badLogin.statusCode, 403);
+
+  const login = mockRes();
+  await checkerLoginHandler(
+    mockReq({ body: { password: process.env.COUPON_STAFF_PIN } }),
+    login,
+  );
+  assert.equal(login.statusCode, 200);
+  assert.equal(login.jsonBody.authenticated, true);
+  const checkerCookie = String(login.headers['set-cookie']).split(';')[0];
+  assert.match(checkerCookie, /^mb_checker=/);
 
   const firstRedemption = mockRes();
   await redeemCouponHandler(
     mockReq({
+      cookie: checkerCookie,
       body: {
         code: claim.jsonBody.couponCode,
-        pin: process.env.COUPON_STAFF_PIN,
       },
     }),
     firstRedemption,
@@ -537,13 +564,18 @@ test('api: coupon can be redeemed exactly once and reports terminal status', asy
   assert.equal(firstRedemption.statusCode, 200);
   assert.equal(firstRedemption.jsonBody.status, 'redeemed');
   assert.equal(firstRedemption.jsonBody.discountPercent, finish.jsonBody.discountPercent);
+  assert.equal(firstRedemption.jsonBody.email, couponEmail);
+  assert.ok(firstRedemption.jsonBody.issuedAt <= firstRedemption.jsonBody.redeemedAt);
+  assert.ok(firstRedemption.jsonBody.expiresAt > firstRedemption.jsonBody.redeemedAt);
+  assert.ok(firstRedemption.jsonBody.remainingSeconds > 0);
+  assert.equal(firstRedemption.jsonBody.timeZone, 'America/New_York');
 
   const replay = mockRes();
   await redeemCouponHandler(
     mockReq({
+      cookie: checkerCookie,
       body: {
         code: claim.jsonBody.couponCode,
-        pin: process.env.COUPON_STAFF_PIN,
       },
     }),
     replay,

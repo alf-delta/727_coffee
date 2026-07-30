@@ -1,9 +1,14 @@
+import { createIcons, MapPin } from 'lucide';
 import { renderMenu } from './menu.js';
 import { renderLegalDocument } from './legal.js';
 import { mountContactVerification } from './verification.js';
 import { LEGAL_VERSION } from '../shared/legal.js';
 
-const isCouponDesk = new URLSearchParams(location.search).get('mode') === 'redeem';
+createIcons({ icons: { MapPin } });
+
+const checkerPath = location.pathname.replace(/\/+$/, '') || '/';
+const isCouponDesk = checkerPath === '/checker'
+  || new URLSearchParams(location.search).get('mode') === 'redeem';
 
 if (isCouponDesk) {
   import('./couponRedeem.js').then(({ mountCouponDesk }) => {
@@ -288,6 +293,7 @@ if (isCouponDesk) {
         : await import('./game/flappyClient.js');
       gameRoot.innerHTML = '';
       activeGame = module.mount(gameRoot, {
+        onVerifyContact: () => showContactVerification(game, 'email-coupon'),
         onVerifyPhone: () => showContactVerification(game, 'phone'),
         onEmailOffer: (contact) => showContactVerification(game, 'post-phone', contact),
       });
@@ -319,7 +325,7 @@ if (isCouponDesk) {
   }
 
   function showDailyComplete(status) {
-    const attempts = Number(status?.attemptsUsed) || 4;
+    const attempts = Number(status?.attemptsUsed) || 3;
     gameRoot.innerHTML = `
       <section class="game-lobby game-lobby--message" aria-live="polite">
         <span class="game-lobby__eyebrow">TODAY'S SET IS COMPLETE</span>
@@ -451,6 +457,10 @@ if (isCouponDesk) {
       if (!response.ok) throw new Error(status.message || 'Could not check today’s attempts.');
       if (status.consentRequired) {
         showConsentGate();
+      } else if (status.contactVerificationRequired && status.selectedGame) {
+        showContactVerification(status.selectedGame, 'email-coupon');
+      } else if (status.couponClaimRequired && status.selectedGame) {
+        showContactVerification(status.selectedGame, 'claim', status.contact);
       } else if (status.phoneVerificationRequired && status.selectedGame) {
         showContactVerification(status.selectedGame, 'phone');
       } else if (status.postPhoneActionRequired && status.selectedGame) {

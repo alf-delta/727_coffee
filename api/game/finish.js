@@ -1,6 +1,10 @@
 import { kv } from '../../src/server/kv.js';
 import { parseCookies, readJsonBody } from '../../src/server/request.js';
-import { BASE_ATTEMPTS_PER_DAY, UID_COOKIE } from '../../src/server/config.js';
+import {
+  BASE_ATTEMPTS_PER_DAY,
+  EMAIL_ONLY_CONTACT_MODE,
+  UID_COOKIE,
+} from '../../src/server/config.js';
 import { todayUTC } from '../../src/server/date.js';
 import {
   claimBestReward,
@@ -164,23 +168,39 @@ export default async function handler(req, res) {
     isCurrentBest = recorded.isCurrentBest;
   }
 
-  // Finishing the bonus run closes a verified set and locks the coupon to the
-  // best result. Before that, the client offers "claim now" or another run.
+  // The legacy phone + email-bonus mode automatically closes the set after its
+  // fourth run. Email-only mode claims immediately after email verification.
   let reward = null;
   let delivery = null;
   if (!best && !isPractice) best = await getBestResult(subject, attemptDate);
-  if (!isPractice && attempt.emailVerifiedAtStart && attemptsRemainingToday === 0 && best) {
-    const claimed = await claimBestReward(subject, attemptDate, uid);
+  if (
+    !EMAIL_ONLY_CONTACT_MODE
+    && !isPractice
+    && attempt.emailVerifiedAtStart
+    && attemptsRemainingToday === 0
+    && best
+  ) {
+    const issuingPlayer = await getPlayerContext(uid, attemptDate);
+    const claimed = await claimBestReward(
+      subject,
+      attemptDate,
+      uid,
+      issuingPlayer.contact,
+    );
     if (claimed.ok) reward = claimed.reward;
     if (reward) {
-      const player = await getPlayerContext(uid, attemptDate);
-      delivery = await deliverRewardToContact(player.contact, reward);
+      delivery = await deliverRewardToContact(issuingPlayer.contact, reward);
     }
   }
   const player = await getPlayerContext(uid, attemptDate);
-  const phoneVerificationRequired = !player.phoneVerified
+  const contactVerificationRequired = EMAIL_ONLY_CONTACT_MODE
+    && !player.verified
     && attemptsUsed >= BASE_ATTEMPTS_PER_DAY;
-  const emailOfferAvailable = player.phoneVerified
+  const phoneVerificationRequired = !EMAIL_ONLY_CONTACT_MODE
+    && !player.phoneVerified
+    && attemptsUsed >= BASE_ATTEMPTS_PER_DAY;
+  const emailOfferAvailable = !EMAIL_ONLY_CONTACT_MODE
+    && player.phoneVerified
     && !player.emailVerified
     && !existingReward
     && Boolean(best);
@@ -198,15 +218,20 @@ export default async function handler(req, res) {
     attemptsUsed,
     attemptsRemainingToday,
     attemptLimit,
-    verified: player.phoneVerified,
+    verified: player.verified,
     phoneVerified: player.phoneVerified,
     emailVerified: player.emailVerified,
     contact: publicContact(player.contact),
     emailContact: publicContact(player.emailContact),
+    verificationChannel: EMAIL_ONLY_CONTACT_MODE ? 'email' : 'sms',
+    contactVerificationRequired,
+    emailVerificationRequired: contactVerificationRequired,
     phoneVerificationRequired,
     emailOfferAvailable,
-    setComplete: player.emailVerified && attemptsRemainingToday === 0,
-    canClaim: player.phoneVerified && !isPractice && Boolean(best),
+    setComplete: EMAIL_ONLY_CONTACT_MODE
+      ? Boolean(existingReward || reward)
+      : player.emailVerified && attemptsRemainingToday === 0,
+    canClaim: player.verified && !isPractice && Boolean(best),
     rewardToken: reward?.rewardToken ?? null,
     couponCode: reward?.couponCode ?? null,
     couponExpiresAt: reward?.couponExpiresAt ?? null,
