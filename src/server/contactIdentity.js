@@ -10,6 +10,7 @@ import { secondsUntilNextUTCMidnight } from './date.js';
 import {
   BASE_ATTEMPTS_PER_DAY,
   CONTACT_SESSION_TTL_SECONDS,
+  EMAIL_ONLY_CONTACT_MODE,
   VERIFIED_ATTEMPTS_PER_DAY,
 } from './config.js';
 
@@ -92,7 +93,9 @@ function contactKey(uid) {
 
 export async function getVerifiedContact(uid) {
   const contact = await kv.get(contactKey(uid));
-  return contact?.channel === 'sms' ? contact : null;
+  return contact?.channel === 'sms' || contact?.channel === 'email'
+    ? contact
+    : null;
 }
 
 export function publicContact(contact) {
@@ -111,18 +114,26 @@ function emailBonusKey(subject, date) {
 
 export async function getPlayerContext(uid, date) {
   const contact = await getVerifiedContact(uid);
+  const primaryContact = EMAIL_ONLY_CONTACT_MODE
+    ? (contact?.channel === 'email' ? contact : null)
+    : (contact?.channel === 'sms' ? contact : null);
+  // Keep progress attached to an existing identity while modes change. In
+  // email-only mode an old phone contact is no longer sufficient to claim,
+  // but its runs must not disappear or reset before the player verifies email.
   const subject = contact ? `identity:${contact.identityHash}` : uid;
-  const emailBonus = contact && date
+  const emailBonus = !EMAIL_ONLY_CONTACT_MODE && primaryContact && date
     ? await kv.get(emailBonusKey(subject, date))
     : null;
   return {
-    contact,
-    verified: Boolean(contact),
-    phoneVerified: Boolean(contact),
-    emailVerified: Boolean(emailBonus),
-    emailContact: emailBonus,
+    contact: primaryContact,
+    verified: Boolean(primaryContact),
+    phoneVerified: primaryContact?.channel === 'sms',
+    emailVerified: primaryContact?.channel === 'email' || Boolean(emailBonus),
+    emailContact: primaryContact?.channel === 'email' ? primaryContact : emailBonus,
     subject,
-    attemptLimit: emailBonus ? VERIFIED_ATTEMPTS_PER_DAY : BASE_ATTEMPTS_PER_DAY,
+    attemptLimit: !EMAIL_ONLY_CONTACT_MODE && emailBonus
+      ? VERIFIED_ATTEMPTS_PER_DAY
+      : BASE_ATTEMPTS_PER_DAY,
   };
 }
 
@@ -188,8 +199,35 @@ export async function linkVerifiedPhone(uid, date, {
   return contact;
 }
 
+export async function linkVerifiedEmail(uid, date, {
+  normalizedValue,
+}) {
+  const channel = 'email';
+  const identityHash = contactIdentityHash(channel, normalizedValue);
+  const identitySubject = `identity:${identityHash}`;
+  const previousContact = await getVerifiedContact(uid);
+
+  await migrateDailyProgress(uid, identitySubject, date);
+  if (previousContact && previousContact.identityHash !== identityHash) {
+    await migrateDailyProgress(`identity:${previousContact.identityHash}`, identitySubject, date);
+  }
+
+  const contact = {
+    channel,
+    identityHash,
+    masked: maskContact(channel, normalizedValue),
+    sealedValue: encryptContact(normalizedValue),
+    verifiedAt: Date.now(),
+    marketingConsent: false,
+    marketingConsentAt: null,
+  };
+  await kv.set(contactKey(uid), contact, { ex: CONTACT_SESSION_TTL_SECONDS });
+  return contact;
+}
+
 export async function linkVerifiedEmailBonus(uid, date, { normalizedValue }) {
-  const phone = await getVerifiedContact(uid);
+  const storedContact = await getVerifiedContact(uid);
+  const phone = storedContact?.channel === 'sms' ? storedContact : null;
   if (!phone) {
     const error = new Error('phone_verification_required');
     error.status = 403;

@@ -1,7 +1,7 @@
 import { randomUUID, randomInt } from 'node:crypto';
 import { kv } from '../../src/server/kv.js';
 import { parseCookies, readJsonBody } from '../../src/server/request.js';
-import { UID_COOKIE } from '../../src/server/config.js';
+import { EMAIL_ONLY_CONTACT_MODE, UID_COOKIE } from '../../src/server/config.js';
 import { todayUTC, secondsUntilNextUTCMidnight } from '../../src/server/date.js';
 import { lockDailyGameChoice } from '../../src/server/gameChoice.js';
 import { hasCurrentConsent } from '../../src/server/consent.js';
@@ -47,13 +47,19 @@ export default async function handler(req, res) {
   if (attemptsToday === 1) await kv.expire(dailyKey, secondsUntilNextUTCMidnight());
   if (attemptsToday > context.attemptLimit) {
     await kv.decr(dailyKey);
-    if (!context.phoneVerified) {
+    if (EMAIL_ONLY_CONTACT_MODE && !context.verified) {
+      return res.status(403).json({
+        error: 'email_verification_required',
+        message: 'Verify your email to receive your coupon.',
+      });
+    }
+    if (!EMAIL_ONLY_CONTACT_MODE && !context.phoneVerified) {
       return res.status(403).json({
         error: 'phone_verification_required',
         message: 'Verify your mobile number to receive your coupon.',
       });
     }
-    if (!context.emailVerified) {
+    if (!EMAIL_ONLY_CONTACT_MODE && !context.emailVerified) {
       return res.status(403).json({
         error: 'email_verification_or_claim_required',
         message: 'Verify your email for one extra run, or send your current coupon.',
@@ -87,7 +93,7 @@ export default async function handler(req, res) {
       attemptDate: date,
       maxDurationMs,
       attemptLimit: context.attemptLimit,
-      verifiedAtStart: context.phoneVerified,
+      verifiedAtStart: context.verified,
       emailVerifiedAtStart: context.emailVerified,
       rewardEligible: !alreadyRewardedToday,
     },
@@ -108,6 +114,7 @@ export default async function handler(req, res) {
     verified: context.verified,
     phoneVerified: context.phoneVerified,
     emailVerified: context.emailVerified,
+    verificationChannel: EMAIL_ONLY_CONTACT_MODE ? 'email' : 'sms',
     contact: publicContact(context.contact),
     attemptsRemainingToday: Math.max(0, context.attemptLimit - attemptsToday),
   });

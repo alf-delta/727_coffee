@@ -1,5 +1,5 @@
 import { parseCookies, readJsonBody } from '../../src/server/request.js';
-import { UID_COOKIE } from '../../src/server/config.js';
+import { EMAIL_ONLY_CONTACT_MODE, UID_COOKIE } from '../../src/server/config.js';
 import { todayUTC } from '../../src/server/date.js';
 import { claimBestReward, getBestResult, getAttemptsUsed } from '../../src/server/gameSet.js';
 import {
@@ -22,11 +22,15 @@ export default async function handler(req, res) {
 
   const date = todayUTC();
   const context = await getPlayerContext(uid, date);
-  if (!context.phoneVerified) {
+  if (!context.verified) {
     return res.status(403).json({
       valid: false,
-      error: 'phone_verification_required',
-      message: 'Verify your mobile number to receive your coupon.',
+      error: EMAIL_ONLY_CONTACT_MODE
+        ? 'email_verification_required'
+        : 'phone_verification_required',
+      message: EMAIL_ONLY_CONTACT_MODE
+        ? 'Verify your email to receive your coupon.'
+        : 'Verify your mobile number to receive your coupon.',
     });
   }
 
@@ -35,7 +39,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'wrong_game', message: 'This result belongs to another game.' });
   }
 
-  const claimed = await claimBestReward(context.subject, date, uid);
+  const claimed = await claimBestReward(context.subject, date, uid, context.contact);
   if (!claimed.ok) {
     return res.status(claimed.status).json({
       valid: false,

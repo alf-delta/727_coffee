@@ -54,7 +54,7 @@ function publicReward(reward) {
   };
 }
 
-export async function claimBestReward(uid, date, tokenUid = uid) {
+export async function claimBestReward(uid, date, tokenUid = uid, contact = null) {
   const key = rewardedKey(uid, date);
   const existing = await kv.get(key);
   if (existing?.status === 'issued') {
@@ -126,6 +126,9 @@ export async function claimBestReward(uid, date, tokenUid = uid) {
         couponCode: payload.couponCode,
         issuedAt: payload.issuedAt,
         expiresAt: payload.exp,
+        contactChannel: contact?.channel || null,
+        contactMasked: contact?.masked || null,
+        sealedContactValue: contact?.sealedValue || null,
       },
       { ex: couponTtlSeconds },
     );

@@ -210,6 +210,13 @@ export function mount(container, options = {}) {
       const body = await res.json().catch(() => ({}));
       if (destroyed) return;
       if (!res.ok) {
+        if (
+          (body.error === 'email_verification_required' || body.error === 'contact_verification_required')
+          && options.onVerifyContact
+        ) {
+          options.onVerifyContact();
+          return;
+        }
         if (body.error === 'phone_verification_required' && options.onVerifyPhone) {
           options.onVerifyPhone();
           return;
@@ -602,7 +609,16 @@ export function mount(container, options = {}) {
       drawGauge(latestPressure);
       navigator.vibrate?.([18, 45, 28]);
 
-      if (result.phoneVerificationRequired) {
+      if (result.contactVerificationRequired || result.emailVerificationRequired) {
+        prompt.innerHTML = `
+          <div class="tapgame__result-card">
+            <span>YOUR BEST SHOT IS SAVED</span>
+            <strong class="tapgame__result-reward">${bestDiscount}% OFF</strong>
+            <div class="tapgame__result-actions">
+              <button type="button" class="tapgame__result-button" data-role="verify-contact">GET YOUR DISCOUNT COUPON</button>
+            </div>
+          </div>`;
+      } else if (result.phoneVerificationRequired) {
         prompt.innerHTML = `
           <div class="tapgame__result-card">
             <span>YOUR BEST SHOT IS SAVED</span>
@@ -664,6 +680,7 @@ export function mount(container, options = {}) {
 
       prompt.querySelector('[data-role="show-coupon"]')?.addEventListener('click', () => showTapCoupon(result));
       prompt.querySelector('[data-role="claim-now"]')?.addEventListener('click', () => claimBestTapCoupon(result));
+      prompt.querySelector('[data-role="verify-contact"]')?.addEventListener('click', () => options.onVerifyContact?.());
       prompt.querySelector('[data-role="verify-phone"]')?.addEventListener('click', () => options.onVerifyPhone?.());
       prompt.querySelector('[data-role="email-offer"]')?.addEventListener('click', () => options.onEmailOffer?.(result.contact));
     }
@@ -693,6 +710,13 @@ export function mount(container, options = {}) {
         body: JSON.stringify({ game: 'tap' }),
       });
       const claimed = await res.json().catch(() => ({}));
+      if (
+        (claimed.error === 'email_verification_required' || claimed.error === 'contact_verification_required')
+        && options.onVerifyContact
+      ) {
+        options.onVerifyContact();
+        return;
+      }
       if (claimed.error === 'phone_verification_required' && options.onVerifyPhone) {
         options.onVerifyPhone();
         return;
