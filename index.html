@@ -15,12 +15,27 @@
     </header>
 
     <nav class="link-stack" aria-label="Monoblend links">
-      <button class="link-btn link-btn--menu" type="button" data-action="open-menu">
-        <span class="link-btn__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-        </span>
-        <span>Menu</span>
-      </button>
+      <div class="link-stack__utility-row">
+        <button class="link-btn link-btn--menu link-btn--utility" type="button" data-action="open-menu">
+          <span class="link-btn__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          </span>
+          <span>Menu</span>
+        </button>
+
+        <a
+          class="link-btn link-btn--maps link-btn--utility"
+          href="https://www.google.com/maps/search/?api=1&amp;query=Monoblend%20Coffee%2C%20142%20W%2023rd%20St%2C%20New%20York%2C%20NY%2010011"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Find Monoblend Coffee on Google Maps"
+        >
+          <span class="link-btn__icon link-btn__icon--maps" aria-hidden="true">
+            <i data-lucide="map-pin"></i>
+          </span>
+          <span>Find Us</span>
+        </a>
+      </div>
 
       <button class="link-btn link-btn--play" type="button" data-action="open-game">
         <span class="link-btn__motion" aria-hidden="true">

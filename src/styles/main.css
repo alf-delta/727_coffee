@@ -57,6 +57,12 @@ body {
   gap: var(--space-5);
 }
 
+.link-stack__utility-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
 .link-btn {
   appearance: none;
   border: none;
@@ -101,6 +107,24 @@ body {
 .link-btn__icon--instagram {
   width: 30px;
   height: 30px;
+}
+
+.link-btn--utility {
+  min-width: 0;
+  justify-content: center;
+  padding-inline: var(--space-4);
+}
+
+.link-btn--maps {
+  box-shadow:
+    0 8px 22px rgb(58 76 47 / 10%),
+    inset 0 0 0 1px rgb(58 47 43 / 8%);
+}
+
+.link-btn__icon--maps {
+  width: 27px;
+  height: 27px;
+  color: currentColor;
 }
 
 .link-btn--play {
@@ -479,6 +503,10 @@ body {
     gap: clamp(8px, 1.25dvh, 14px);
   }
 
+  .link-stack__utility-row {
+    gap: clamp(8px, 2.5vw, 12px);
+  }
+
   .link-btn {
     min-height: clamp(52px, 7dvh, 58px);
     padding-inline: clamp(18px, 5vw, 24px);
@@ -546,6 +574,15 @@ body {
     min-height: 48px;
     padding-inline: 18px;
     font-size: var(--font-size-base);
+  }
+
+  .link-btn--utility {
+    padding-inline: 12px;
+  }
+
+  .link-btn--utility .link-btn__icon {
+    width: 23px;
+    height: 23px;
   }
 
   .link-btn__subtitle {

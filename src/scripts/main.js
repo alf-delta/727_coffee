@@ -1,7 +1,10 @@
+import { createIcons, MapPin } from 'lucide';
 import { renderMenu } from './menu.js';
 import { renderLegalDocument } from './legal.js';
 import { mountContactVerification } from './verification.js';
 import { LEGAL_VERSION } from '../shared/legal.js';
+
+createIcons({ icons: { MapPin } });
 
 const checkerPath = location.pathname.replace(/\/+$/, '') || '/';
 const isCouponDesk = checkerPath === '/checker'
