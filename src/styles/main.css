@@ -136,6 +136,7 @@ body {
 .link-btn--play {
   position: relative;
   isolation: isolate;
+  justify-content: center;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 34%);
   background: rgb(48 40 39 / 72%);
@@ -144,6 +145,7 @@ body {
     0 14px 30px rgb(64 45 38 / 18%),
     inset 0 1px 0 rgb(255 255 255 / 24%),
     inset 0 -1px 0 rgb(20 15 14 / 18%);
+  text-align: center;
 }
 
 .link-btn--play > .link-btn__icon,
@@ -153,8 +155,16 @@ body {
 }
 
 .link-btn--play .link-btn__icon {
+  position: absolute;
+  left: var(--space-6);
   color: #fff2a8;
   filter: drop-shadow(0 1px 5px rgb(20 12 26 / 38%));
+}
+
+.link-btn--play .link-btn__copy {
+  width: 100%;
+  padding-inline: 34px;
+  text-align: center;
 }
 
 .link-btn__matte {

@@ -91,15 +91,16 @@ function renderKitchenItem(item) {
     </article>`;
 }
 
-export function renderMenu(container) {
+export function renderMenu(container, initialTab = 'drink') {
+  const activeTab = initialTab === 'kitchen' ? 'kitchen' : 'drink';
   container.innerHTML = `
     <div class="menu">
       <div class="menu__tabs" role="tablist">
-        <button class="menu__tab" role="tab" aria-selected="true" data-tab="drink">${drinkMenu.title}</button>
-        <button class="menu__tab" role="tab" aria-selected="false" data-tab="kitchen">${kitchenMenu.title}</button>
+        <button class="menu__tab" role="tab" aria-selected="${activeTab === 'drink'}" data-tab="drink">${drinkMenu.title}</button>
+        <button class="menu__tab" role="tab" aria-selected="${activeTab === 'kitchen'}" data-tab="kitchen">${kitchenMenu.title}</button>
       </div>
-      <div data-panel="drink">${renderSections(drinkMenu)}</div>
-      <div class="kitchen-menu" data-panel="kitchen" hidden>${renderKitchenMenu(kitchenMenu)}</div>
+      <div data-panel="drink" ${activeTab === 'drink' ? '' : 'hidden'}>${renderSections(drinkMenu)}</div>
+      <div class="kitchen-menu" data-panel="kitchen" ${activeTab === 'kitchen' ? '' : 'hidden'}>${renderKitchenMenu(kitchenMenu)}</div>
     </div>`;
 
   const tabs = container.querySelectorAll('.menu__tab');

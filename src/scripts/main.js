@@ -492,6 +492,12 @@ if (isCouponDesk) {
     }
   }
 
+  const requestedMenuTab = new URLSearchParams(location.search).get('menu');
+  if (requestedMenuTab === 'kitchen' || requestedMenuTab === 'drink') {
+    renderMenu(menuContent, requestedMenuTab);
+    openOverlay(menuOverlay);
+  }
+
   document.addEventListener('click', (event) => {
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action === 'open-menu') {
