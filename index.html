@@ -9,7 +9,8 @@
   <link rel="stylesheet" href="/src/styles/main.css" />
 </head>
 <body>
-  <main class="page">
+  <div class="home-story">
+  <main class="page" id="home-top">
     <header class="hero">
       <img class="hero__logo" src="/logo.svg" alt="Monoblend Coffee — Coffee Roasters" width="220" height="121" />
     </header>
@@ -114,6 +115,59 @@
       </nav>
     </footer>
   </main>
+
+  <section class="thread" aria-labelledby="thread-title">
+    <header class="thread__header">
+      <span>OFF THE MENU</span>
+      <h2 id="thread-title">A little more Monoblend.</h2>
+    </header>
+
+    <div class="thread__collage">
+      <div class="thread__row thread__row--wide">
+        <figure class="thread__card"><img src="/thread/IMG_0779.webp" alt="" loading="lazy" decoding="async" width="1440" height="960" /></figure>
+      </div>
+      <div class="thread__row thread__row--pair">
+        <figure class="thread__card"><img src="/thread/IMG_0010.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+        <figure class="thread__card"><img src="/thread/IMG_0037.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+      </div>
+      <div class="thread__row thread__row--feature">
+        <figure class="thread__card"><img src="/thread/IMG_0069.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+        <figure class="thread__card"><img src="/thread/IMG_0073.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+      </div>
+      <div class="thread__row thread__row--pair">
+        <figure class="thread__card"><img src="/thread/IMG_0167.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+        <figure class="thread__card"><img src="/thread/IMG_0232.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+      </div>
+      <div class="thread__row thread__row--wide">
+        <figure class="thread__card"><img src="/thread/IMG_0711.webp" alt="" loading="lazy" decoding="async" width="1440" height="960" /></figure>
+      </div>
+      <div class="thread__row thread__row--feature thread__row--feature-reverse">
+        <figure class="thread__card"><img src="/thread/IMG_0312.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+        <figure class="thread__card"><img src="/thread/IMG_0332.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+      </div>
+      <div class="thread__row thread__row--pair">
+        <figure class="thread__card"><img src="/thread/IMG_0399.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+        <figure class="thread__card"><img src="/thread/IMG_0507.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+      </div>
+      <div class="thread__row thread__row--feature">
+        <figure class="thread__card"><img src="/thread/IMG_0565.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+        <figure class="thread__card"><img src="/thread/IMG_0685.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+      </div>
+      <div class="thread__row thread__row--pair">
+        <figure class="thread__card"><img src="/thread/IMG_0686.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+        <figure class="thread__card"><img src="/thread/IMG_0732.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+      </div>
+      <div class="thread__row thread__row--closing">
+        <figure class="thread__card"><img src="/thread/IMG_0753.webp" alt="" loading="lazy" decoding="async" width="960" height="1440" /></figure>
+      </div>
+    </div>
+
+    <button class="thread__back" type="button" data-action="back-to-top">
+      <span>BACK UPTOWN</span>
+      <span aria-hidden="true">↑</span>
+    </button>
+  </section>
+  </div>
 
   <div class="overlay" id="menu-overlay" hidden>
     <div class="overlay__panel">

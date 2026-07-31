@@ -26,6 +26,7 @@ if (isCouponDesk) {
   const socialViewport = document.querySelector('.social-gallery__viewport');
   const socialScroller = document.querySelector('.social-gallery__scroller');
   const socialTrack = document.querySelector('.social-gallery__track');
+  const backToTopButton = document.querySelector('[data-action="back-to-top"]');
 
   if (socialTrack) {
     const originalSet = socialTrack.querySelector('.social-gallery__set');
@@ -250,6 +251,11 @@ if (isCouponDesk) {
 
     startSocialArc();
   }
+
+  backToTopButton?.addEventListener('click', () => {
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+  });
 
   document.addEventListener('visibilitychange', () => {
     const overlayOpen = !menuOverlay.hidden || !gameOverlay.hidden || !legalOverlay.hidden;
