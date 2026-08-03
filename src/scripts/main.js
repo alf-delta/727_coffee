@@ -119,6 +119,7 @@ if (isCouponDesk) {
     let draggedDistance = 0;
     let isMouseDragging = false;
     let loopPositionReady = false;
+    let autoScrollPosition = socialScroller.scrollLeft;
     const firstSet = socialTrack.querySelector('.social-gallery__set');
     const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const loopDurationMs = prefersReducedMotion ? 120000 : 42240;
@@ -131,6 +132,7 @@ if (isCouponDesk) {
       if (!loopWidth) return;
       if (!loopPositionReady) {
         socialScroller.scrollLeft = loopWidth;
+        autoScrollPosition = loopWidth;
         loopPositionReady = true;
         return;
       }
@@ -143,7 +145,8 @@ if (isCouponDesk) {
       }
 
       if (!shift) return;
-      socialScroller.scrollLeft += shift;
+      autoScrollPosition += shift;
+      socialScroller.scrollLeft = autoScrollPosition;
       if (isMouseDragging) dragStartScrollLeft += shift;
     };
 
@@ -151,15 +154,18 @@ if (isCouponDesk) {
       if (socialGalleryPaused) return;
 
       const elapsedMs = previousFrameTime
-        ? Math.min(50, frameTime - previousFrameTime)
+        ? Math.min(1000, frameTime - previousFrameTime)
         : 0;
       previousFrameTime = frameTime;
 
       const loopWidth = firstSet?.offsetWidth || 0;
       normalizeLoopPosition(loopWidth);
       if (loopWidth && frameTime >= autoScrollPausedUntil) {
-        socialScroller.scrollLeft += (loopWidth / loopDurationMs) * elapsedMs;
+        autoScrollPosition += (loopWidth / loopDurationMs) * elapsedMs;
+        socialScroller.scrollLeft = autoScrollPosition;
         normalizeLoopPosition(loopWidth);
+      } else {
+        autoScrollPosition = socialScroller.scrollLeft;
       }
 
       const viewportRect = socialViewport.getBoundingClientRect();
