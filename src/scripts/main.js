@@ -1,4 +1,5 @@
 import { createIcons, MapPin } from 'lucide';
+import { inject } from '@vercel/analytics';
 import { renderMenu } from './menu.js';
 import { renderLegalDocument } from './legal.js';
 import { mountContactVerification } from './verification.js';
@@ -19,6 +20,8 @@ function escapeHtml(value) {
 const checkerPath = location.pathname.replace(/\/+$/, '') || '/';
 const isCouponDesk = checkerPath === '/checker'
   || new URLSearchParams(location.search).get('mode') === 'redeem';
+
+if (!isCouponDesk) inject();
 
 if (isCouponDesk) {
   import('./couponRedeem.js').then(({ mountCouponDesk }) => {
