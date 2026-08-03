@@ -1,6 +1,7 @@
 import { parseCookies } from '../../src/server/request.js';
 import {
   BASE_ATTEMPTS_PER_DAY,
+  BUSINESS_TIME_ZONE,
   EMAIL_ONLY_CONTACT_MODE,
   UID_COOKIE,
 } from '../../src/server/config.js';
@@ -60,6 +61,21 @@ export default async function handler(req, res) {
     && !reward
     && Boolean(best)
     && attemptsRemainingToday === 0;
+  const redemption = reward?.status === 'issued' && reward.couponId
+    ? await kv.get(`coupon-used:${reward.couponId}`)
+    : null;
+  const dailyCoupon = reward?.status === 'issued'
+    ? {
+        couponCode: reward.couponCode,
+        couponExpiresAt: reward.couponExpiresAt,
+        discountPercent: reward.discountPercent,
+        bestAttemptNumber: reward.bestAttemptNumber,
+        attemptsUsed: reward.attemptsUsed,
+        status: redemption ? 'redeemed' : 'issued',
+        redeemedAt: redemption?.redeemedAt ?? null,
+        timeZone: BUSINESS_TIME_ZONE,
+      }
+    : null;
 
   return res.status(200).json({
     selectedGame,
@@ -77,6 +93,7 @@ export default async function handler(req, res) {
     phoneVerificationRequired,
     postPhoneActionRequired,
     couponClaimRequired,
+    dailyCoupon,
     exhausted: Boolean(reward)
       || (!EMAIL_ONLY_CONTACT_MODE && context.emailVerified && attemptsRemainingToday === 0),
     canChoose: !selectedGame

@@ -6,6 +6,16 @@ import { LEGAL_VERSION } from '../shared/legal.js';
 
 createIcons({ icons: { MapPin } });
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  })[char]);
+}
+
 const checkerPath = location.pathname.replace(/\/+$/, '') || '/';
 const isCouponDesk = checkerPath === '/checker'
   || new URLSearchParams(location.search).get('mode') === 'redeem';
@@ -338,6 +348,55 @@ if (isCouponDesk) {
 
   function showDailyComplete(status) {
     const attempts = Number(status?.attemptsUsed) || 3;
+    const coupon = status?.dailyCoupon;
+    if (coupon?.couponCode) {
+      const code = escapeHtml(coupon.couponCode);
+      const discount = Math.max(0, Number(coupon.discountPercent) || 0);
+      const redeemed = coupon.status === 'redeemed';
+      gameRoot.innerHTML = `
+        <section class="game-lobby game-lobby--daily-coupon" aria-live="polite">
+          <header class="game-lobby__header">
+            <span class="game-lobby__eyebrow">TODAY'S ARCADE IS WRAPPED</span>
+            <strong>YOU'RE ALL SET FOR TODAY</strong>
+            <span>${redeemed
+              ? 'Your coupon has already been used. Here it is for your records.'
+              : 'Done playing? No problem — your best discount is saved right here.'}</span>
+          </header>
+          <div class="daily-coupon${redeemed ? ' is-redeemed' : ''}">
+            <div class="daily-coupon__topline">
+              <span>${redeemed ? 'COUPON USED' : "TODAY'S COUPON"}</span>
+              <strong>${discount}% OFF</strong>
+            </div>
+            <button class="daily-coupon__code" type="button" data-role="copy-daily-coupon" aria-label="Coupon code ${code}. Tap to copy.">
+              <span>${code.slice(0, 4)}</span><span>${code.slice(4)}</span>
+            </button>
+            <span class="daily-coupon__copy-hint" data-role="coupon-copy-hint">${redeemed ? 'REDEEMED TODAY' : 'TAP CODE TO COPY'}</span>
+            <div class="daily-coupon__validity">
+              <i aria-hidden="true"></i>
+              <span>${redeemed ? 'ALREADY REDEEMED' : "VALID THROUGH TODAY'S CAFÉ SERVICE"}</span>
+            </div>
+            <p>${redeemed
+              ? 'Thanks for stopping by. This code cannot be used again.'
+              : 'Show this code to your barista before payment. It remains available here for the rest of today.'}</p>
+          </div>
+          <p class="daily-coupon__tomorrow"><strong>NEW DAY, NEW SHOT.</strong> Come back tomorrow to play again and unlock a new discount.</p>
+        </section>`;
+
+      const copyButton = gameRoot.querySelector('[data-role="copy-daily-coupon"]');
+      const copyHint = gameRoot.querySelector('[data-role="coupon-copy-hint"]');
+      if (!redeemed) {
+        copyButton?.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(coupon.couponCode);
+            copyHint.textContent = 'COPIED — KEEP IT HANDY';
+          } catch {
+            copyHint.textContent = 'PRESS AND HOLD TO COPY';
+          }
+        });
+      }
+      return;
+    }
+
     gameRoot.innerHTML = `
       <section class="game-lobby game-lobby--message" aria-live="polite">
         <span class="game-lobby__eyebrow">TODAY'S SET IS COMPLETE</span>

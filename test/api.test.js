@@ -264,6 +264,14 @@ test('api: a player can claim the current best result before using all attempts'
   assert.equal(claim.jsonBody.delivery.delivered, true);
   assert.equal(claim.jsonBody.delivery.channel, 'email');
 
+  const completedStatus = await getGameStatus(uid);
+  assert.equal(completedStatus.statusCode, 200);
+  assert.equal(completedStatus.jsonBody.exhausted, true);
+  assert.equal(completedStatus.jsonBody.dailyCoupon.status, 'issued');
+  assert.equal(completedStatus.jsonBody.dailyCoupon.couponCode, claim.jsonBody.couponCode);
+  assert.equal(completedStatus.jsonBody.dailyCoupon.discountPercent, claim.jsonBody.discountPercent);
+  assert.equal(completedStatus.jsonBody.dailyCoupon.couponExpiresAt, claim.jsonBody.couponExpiresAt);
+
   const start2 = await startGame(uid, 'tap');
   const finish2 = await finishGame(uid, start2, [500, 700, 900, 1100, 1300, 1500]);
   assert.equal(finish2.statusCode, 200);
@@ -569,6 +577,13 @@ test('api: coupon can be redeemed exactly once and reports terminal status', asy
   assert.ok(firstRedemption.jsonBody.expiresAt > firstRedemption.jsonBody.redeemedAt);
   assert.ok(firstRedemption.jsonBody.remainingSeconds > 0);
   assert.equal(firstRedemption.jsonBody.timeZone, 'America/New_York');
+
+  const redeemedGameStatus = await getGameStatus(uid);
+  assert.equal(redeemedGameStatus.statusCode, 200);
+  assert.equal(redeemedGameStatus.jsonBody.exhausted, true);
+  assert.equal(redeemedGameStatus.jsonBody.dailyCoupon.status, 'redeemed');
+  assert.equal(redeemedGameStatus.jsonBody.dailyCoupon.couponCode, claim.jsonBody.couponCode);
+  assert.ok(redeemedGameStatus.jsonBody.dailyCoupon.redeemedAt);
 
   const replay = mockRes();
   await redeemCouponHandler(
