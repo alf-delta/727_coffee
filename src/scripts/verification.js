@@ -83,8 +83,14 @@ export function mountContactVerification(container, {
           <p class="contact-verify__disclosure">
             Email is optional and is used to verify this extra attempt. Your coupon will still be delivered to your confirmed phone number.
           </p>
+          <label class="contact-verify__optional contact-verify__marketing">
+            <input type="checkbox" name="marketingConsent" />
+            <span class="contact-verify__optional-box" aria-hidden="true"></span>
+            <span>Keep me in the loop — occasional Monoblend drops, menu news &amp; offers. Unsubscribe anytime.</span>
+          </label>
           <p class="contact-verify__error" role="alert" hidden></p>
           <button class="contact-verify__submit" type="submit">EMAIL ME A CODE →</button>
+          <p class="contact-verify__fineprint">Optional. Your choice won’t affect your coupon or extra run.</p>
           <button class="contact-verify__back" type="button" data-action="back-to-choice">BACK TO COUPON OPTIONS</button>
         </form>
       </section>`;
@@ -117,11 +123,16 @@ export function mountContactVerification(container, {
             />
           </label>
           <p class="contact-verify__disclosure">
-            We use this email only to verify today’s game limit and deliver the coupon you request.
+            We use this email to verify today’s game limit and deliver the coupon you request.
           </p>
+          <label class="contact-verify__optional contact-verify__marketing">
+            <input type="checkbox" name="marketingConsent" />
+            <span class="contact-verify__optional-box" aria-hidden="true"></span>
+            <span>Keep me in the loop — occasional Monoblend drops, menu news &amp; offers. Unsubscribe anytime.</span>
+          </label>
           <p class="contact-verify__error" role="alert" hidden></p>
           <button class="contact-verify__submit" type="submit">EMAIL ME A CODE →</button>
-          <p class="contact-verify__fineprint">No marketing subscription is required.</p>
+          <p class="contact-verify__fineprint">Optional. Your choice won’t affect your coupon.</p>
         </form>
       </section>`;
 
@@ -148,6 +159,8 @@ export function mountContactVerification(container, {
           body: JSON.stringify({
             channel,
             value: input.value,
+            marketingConsent: channel === 'email'
+              && Boolean(form.elements.marketingConsent?.checked),
           }),
         }));
         renderCodeStep(challenge);

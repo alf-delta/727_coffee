@@ -37,6 +37,27 @@ async function sendResendEmail({ to, subject, text, html, idempotencyKey }) {
   return response.json();
 }
 
+export async function addResendMarketingContact(email) {
+  if (localDevelopment) return { synced: false, mode: 'dev' };
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('email_provider_not_configured');
+  const response = await fetch('https://api.resend.com/contacts', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      unsubscribed: false,
+    }),
+  });
+  if (response.status === 409) return { synced: true, existing: true };
+  if (!response.ok) await providerError(response, 'Marketing contact could not be saved.');
+  const contact = await response.json();
+  return { synced: true, contactId: contact.id || null };
+}
+
 export async function sendVerification({ channel, destination, code, challengeId }) {
   if (localDevelopment) return { mode: 'dev', devCode: code };
 

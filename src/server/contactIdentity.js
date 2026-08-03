@@ -13,6 +13,7 @@ import {
   EMAIL_ONLY_CONTACT_MODE,
   VERIFIED_ATTEMPTS_PER_DAY,
 } from './config.js';
+import { MARKETING_CONSENT_VERSION } from '../shared/legal.js';
 
 function identitySecret() {
   const secret = process.env.IDENTITY_HMAC_SECRET || process.env.REWARD_TOKEN_SECRET;
@@ -201,6 +202,8 @@ export async function linkVerifiedPhone(uid, date, {
 
 export async function linkVerifiedEmail(uid, date, {
   normalizedValue,
+  marketingConsent = false,
+  marketingConsentAt = null,
 }) {
   const channel = 'email';
   const identityHash = contactIdentityHash(channel, normalizedValue);
@@ -218,14 +221,19 @@ export async function linkVerifiedEmail(uid, date, {
     masked: maskContact(channel, normalizedValue),
     sealedValue: encryptContact(normalizedValue),
     verifiedAt: Date.now(),
-    marketingConsent: false,
-    marketingConsentAt: null,
+    marketingConsent: Boolean(marketingConsent),
+    marketingConsentAt: marketingConsent ? marketingConsentAt : null,
+    marketingConsentVersion: marketingConsent ? MARKETING_CONSENT_VERSION : null,
   };
   await kv.set(contactKey(uid), contact, { ex: CONTACT_SESSION_TTL_SECONDS });
   return contact;
 }
 
-export async function linkVerifiedEmailBonus(uid, date, { normalizedValue }) {
+export async function linkVerifiedEmailBonus(uid, date, {
+  normalizedValue,
+  marketingConsent = false,
+  marketingConsentAt = null,
+}) {
   const storedContact = await getVerifiedContact(uid);
   const phone = storedContact?.channel === 'sms' ? storedContact : null;
   if (!phone) {
@@ -261,10 +269,33 @@ export async function linkVerifiedEmailBonus(uid, date, { normalizedValue }) {
     channel: 'email',
     identityHash: emailIdentityHash,
     masked: maskContact('email', normalizedValue),
+    sealedValue: encryptContact(normalizedValue),
     verifiedAt: Date.now(),
+    marketingConsent: Boolean(marketingConsent),
+    marketingConsentAt: marketingConsent ? marketingConsentAt : null,
+    marketingConsentVersion: marketingConsent ? MARKETING_CONSENT_VERSION : null,
   };
   await kv.set(emailBonusKey(subject, date), emailContact, { ex: ttl });
   return { phone, emailContact, subject };
+}
+
+export async function recordMarketingSubscriber(normalizedValue, {
+  identityHash = contactIdentityHash('email', normalizedValue),
+  consentAt = Date.now(),
+  source = 'game_coupon',
+} = {}) {
+  const subscriber = {
+    channel: 'email',
+    identityHash,
+    masked: maskContact('email', normalizedValue),
+    sealedValue: encryptContact(normalizedValue),
+    consentAt,
+    consentVersion: MARKETING_CONSENT_VERSION,
+    source,
+    unsubscribedAt: null,
+  };
+  await kv.set(`marketing-subscriber:${identityHash}`, subscriber);
+  return subscriber;
 }
 
 export function revealContact(contact) {

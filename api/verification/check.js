@@ -11,8 +11,12 @@ import {
   linkVerifiedEmailBonus,
   linkVerifiedPhone,
   publicContact,
+  recordMarketingSubscriber,
 } from '../../src/server/contactIdentity.js';
-import { checkTwilioVerification } from '../../src/server/contactProviders.js';
+import {
+  addResendMarketingContact,
+  checkTwilioVerification,
+} from '../../src/server/contactProviders.js';
 import { todayUTC } from '../../src/server/date.js';
 import { getAttemptsUsed } from '../../src/server/gameSet.js';
 import { kv } from '../../src/server/kv.js';
@@ -86,6 +90,9 @@ export default async function handler(req, res) {
   }
 
   const date = todayUTC();
+  const marketingConsent = challenge.channel === 'email'
+    && challenge.marketingConsent === true;
+  const marketingConsentAt = marketingConsent ? Date.now() : null;
   let contact;
   let emailContact = null;
   try {
@@ -98,6 +105,8 @@ export default async function handler(req, res) {
       }
       contact = await linkVerifiedEmail(uid, date, {
         normalizedValue: destination,
+        marketingConsent,
+        marketingConsentAt,
       });
       emailContact = contact;
     } else if (challenge.channel === 'sms') {
@@ -107,6 +116,8 @@ export default async function handler(req, res) {
     } else {
       const linked = await linkVerifiedEmailBonus(uid, date, {
         normalizedValue: destination,
+        marketingConsent,
+        marketingConsentAt,
       });
       contact = linked.phone;
       emailContact = linked.emailContact;
@@ -126,6 +137,21 @@ export default async function handler(req, res) {
     }
     throw error;
   }
+
+  let marketingSubscription = null;
+  if (marketingConsent) {
+    const emailIdentityHash = challenge.identityHash;
+    await recordMarketingSubscriber(destination, {
+      identityHash: emailIdentityHash,
+      consentAt: marketingConsentAt,
+    });
+    try {
+      marketingSubscription = await addResendMarketingContact(destination);
+    } catch (error) {
+      marketingSubscription = { synced: false };
+      console.error('[marketing-contact-sync]', error);
+    }
+  }
   await kv.del(`verification:${challengeId}`);
 
   const subject = `identity:${contact.identityHash}`;
@@ -143,5 +169,7 @@ export default async function handler(req, res) {
     bonusAttemptUnlocked: !EMAIL_ONLY_CONTACT_MODE
       && Boolean(emailContact)
       && attemptsUsed < VERIFIED_ATTEMPTS_PER_DAY,
+    marketingSubscribed: marketingConsent,
+    marketingSubscriptionSynced: Boolean(marketingSubscription?.synced),
   });
 }

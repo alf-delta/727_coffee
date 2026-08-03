@@ -16,6 +16,7 @@ import { hasCurrentConsent } from '../../src/server/consent.js';
 import { todayUTC } from '../../src/server/date.js';
 import { kv } from '../../src/server/kv.js';
 import { parseCookies, readJsonBody } from '../../src/server/request.js';
+import { MARKETING_CONSENT_VERSION } from '../../src/shared/legal.js';
 
 function codeHash(challengeId, code) {
   const secret = process.env.IDENTITY_HMAC_SECRET || process.env.REWARD_TOKEN_SECRET;
@@ -160,6 +161,8 @@ export default async function handler(req, res) {
         codeHash: codeHash(challengeId, code),
         providerMode: delivery.mode,
         createdAt: Date.now(),
+        marketingConsent: channel === 'email' && body.marketingConsent === true,
+        marketingConsentVersion: MARKETING_CONSENT_VERSION,
       },
       { ex: VERIFICATION_TTL_SECONDS },
     );

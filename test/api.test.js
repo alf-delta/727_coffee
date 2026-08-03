@@ -17,6 +17,7 @@ import sendVerificationHandler from '../api/verification/send.js';
 import checkVerificationHandler from '../api/verification/check.js';
 import {
   contactIdentityHash,
+  decryptContact,
   normalizeEmail,
 } from '../src/server/contactIdentity.js';
 import { kv } from '../src/server/kv.js';
@@ -115,11 +116,12 @@ async function claimGame(uid, game) {
 async function sendVerification(uid, {
   channel = 'email',
   value = `${randomUUID()}@example.com`,
+  marketingConsent = false,
 } = {}) {
   await acceptLegal(uid);
   const res = mockRes();
   await sendVerificationHandler(
-    mockReq({ uid, body: { channel, value } }),
+    mockReq({ uid, body: { channel, value, marketingConsent } }),
     res,
   );
   return res;
@@ -353,6 +355,30 @@ test('api: an incorrect verification code does not unlock an identity', async ()
   const status = await getGameStatus(uid);
   assert.equal(status.jsonBody.verified, false);
   assert.equal(status.jsonBody.attemptLimit, 3);
+});
+
+test('api: explicit marketing consent creates a persistent encrypted subscriber', async () => {
+  const uid = randomUUID();
+  const email = `${randomUUID()}@example.com`;
+  const start = await startGame(uid, 'tap');
+  const finish = await finishGame(uid, start, [500, 700, 900, 1100, 1300, 1500]);
+  assert.equal(finish.jsonBody.valid, true);
+
+  const verified = await verifyContact(uid, {
+    channel: 'email',
+    value: email,
+    marketingConsent: true,
+  });
+  assert.equal(verified.jsonBody.contact.marketingConsent, true);
+  assert.equal(verified.jsonBody.marketingSubscribed, true);
+
+  const identityHash = contactIdentityHash('email', normalizeEmail(email));
+  const subscriber = await kv.get(`marketing-subscriber:${identityHash}`);
+  assert.ok(subscriber);
+  assert.equal(subscriber.identityHash, identityHash);
+  assert.equal(subscriber.source, 'game_coupon');
+  assert.ok(subscriber.consentAt);
+  assert.equal(decryptContact(subscriber.sealedValue), normalizeEmail(email));
 });
 
 test('api: email verification is unavailable before a verified result exists', async () => {

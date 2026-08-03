@@ -75,7 +75,7 @@ function privacyDocument() {
 
       <section>
         <h3>2. How we use information</h3>
-        <p>We use information to operate the games, enforce daily limits, verify results, prevent abuse, issue and redeem coupons, provide requested messages, maintain security, and understand service performance.</p>
+        <p>We use information to operate the games, enforce daily limits, verify results, prevent abuse, issue and redeem coupons, provide requested messages, maintain security, and understand service performance. If you separately opt in, we also use your email address to send occasional Monoblend Coffee news and promotional offers.</p>
       </section>
 
       <section>
@@ -90,12 +90,12 @@ function privacyDocument() {
 
       <section>
         <h3>5. Retention and security</h3>
-        <p>We retain information only as long as reasonably needed for the purposes described above, fraud prevention, legal obligations, and dispute resolution. We use reasonable technical and organizational safeguards, but no online system is completely secure.</p>
+        <p>We retain information only as long as reasonably needed for the purposes described above, fraud prevention, legal obligations, and dispute resolution. Marketing subscription records are retained until you unsubscribe or request deletion, subject to records needed to honor that choice. We use reasonable technical and organizational safeguards, but no online system is completely secure.</p>
       </section>
 
       <section>
         <h3>6. Your choices</h3>
-        <p>Promotional messages are optional. You may request information about, correction of, or deletion of personal information, subject to applicable law and legitimate fraud-prevention or recordkeeping needs.</p>
+        <p>Promotional messages are optional and do not affect game or coupon eligibility. Every marketing email will provide a way to unsubscribe. You may also request information about, correction of, or deletion of personal information, subject to applicable law and legitimate fraud-prevention or recordkeeping needs.</p>
       </section>
 
       <section>
