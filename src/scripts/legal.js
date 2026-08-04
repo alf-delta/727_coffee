@@ -53,7 +53,12 @@ function termsDocument() {
       </section>
 
       <section>
-        <h3>7. Contact</h3>
+        <h3>7. Optional behavior analytics</h3>
+        <p>Microsoft Clarity behavior analytics runs only after a separate, voluntary permission from a visitor who confirms they are at least 18 years old. Declining analytics does not affect access to the website, games, attempts, or coupons.</p>
+      </section>
+
+      <section>
+        <h3>8. Contact</h3>
         <p>Questions may be sent through the official <a href="${CONTACT_URL}" target="_blank" rel="noopener noreferrer">Monoblend Coffee Instagram account</a>.</p>
       </section>
     </article>`;
@@ -70,7 +75,7 @@ function privacyDocument() {
 
       <section>
         <h3>1. Information we collect</h3>
-        <p>We collect a device identifier stored in a cookie, game activity, attempts, scores, coupon status, and basic technical request information. If you provide an email address for verification or coupon delivery, we also process that information.</p>
+        <p>We collect a device identifier stored in a cookie, game activity, attempts, scores, coupon status, and basic technical request information. If you provide an email address for verification, coupon delivery, or optional marketing, we also process that information. If you separately allow behavior analytics, we collect the website usage information described below.</p>
       </section>
 
       <section>
@@ -80,31 +85,38 @@ function privacyDocument() {
 
       <section>
         <h3>3. Cookies</h3>
-        <p>We use a necessary first-party cookie to recognize the device, remember daily game activity, and help prevent repeated claims. Blocking or deleting it may cause the service to treat the browser as a new device.</p>
+        <p>We use a necessary first-party cookie to recognize the device, remember daily game activity, and help prevent repeated claims. We also use local browser storage to remember your analytics choice. Blocking or deleting necessary storage may cause the service to treat the browser as a new device or ask for your choice again.</p>
+        <p>Microsoft Clarity cookies and similar analytics storage are optional and are enabled only after you select “Allow Analytics.” We keep advertising storage denied.</p>
       </section>
 
       <section>
-        <h3>4. Service providers and sharing</h3>
-        <p>We may use hosting, database, security, analytics, and email delivery providers to operate the service. They process information only for the services they provide to us. We do not sell email addresses or game activity.</p>
+        <h3>4. Microsoft Clarity behavior analytics</h3>
+        <p>With your permission, we use Microsoft Clarity to understand how visitors use the website through behavioral metrics, heatmaps, and session replay. Clarity may process page interactions such as clicks, scrolling, navigation, device and browser information, approximate location, and related usage data. We use this information to improve navigation, design, performance, and technical reliability—not to determine game results, coupon eligibility, or advertising.</p>
+        <p>Contact verification and coupon areas are explicitly masked, and Clarity does not run on the staff coupon checker. Microsoft may process analytics information as our service provider under the <a href="https://privacy.microsoft.com/en-us/privacystatement" target="_blank" rel="noopener noreferrer">Microsoft Privacy Statement</a>.</p>
       </section>
 
       <section>
-        <h3>5. Retention and security</h3>
-        <p>We retain information only as long as reasonably needed for the purposes described above, fraud prevention, legal obligations, and dispute resolution. Marketing subscription records are retained until you unsubscribe or request deletion, subject to records needed to honor that choice. We use reasonable technical and organizational safeguards, but no online system is completely secure.</p>
+        <h3>5. Service providers and sharing</h3>
+        <p>We may use hosting, database, security, analytics, and email delivery providers to operate the service. They process information only for the services they provide to us. We do not sell email addresses, game activity, or Clarity analytics data.</p>
       </section>
 
       <section>
-        <h3>6. Your choices</h3>
-        <p>Promotional messages are optional and do not affect game or coupon eligibility. Every marketing email will provide a way to unsubscribe. You may also request information about, correction of, or deletion of personal information, subject to applicable law and legitimate fraud-prevention or recordkeeping needs.</p>
+        <h3>6. Retention and security</h3>
+        <p>We retain information only as long as reasonably needed for the purposes described above, fraud prevention, legal obligations, and dispute resolution. Analytics information is subject to Microsoft Clarity’s applicable retention settings. Marketing subscription records are retained until you unsubscribe or request deletion, subject to records needed to honor that choice. We use reasonable technical and organizational safeguards, but no online system is completely secure.</p>
       </section>
 
       <section>
-        <h3>7. Children</h3>
-        <p>The games are not intended for children under 13, and we do not knowingly collect personal information from children under 13.</p>
+        <h3>7. Your choices</h3>
+        <p>Behavior analytics is optional. You can allow, decline, or change this choice at any time through “Privacy Choices” in the website footer; declining does not affect games or coupons. Promotional messages are also optional and do not affect game or coupon eligibility. Every marketing email will provide a way to unsubscribe. You may request information about, correction of, or deletion of personal information, subject to applicable law and legitimate fraud-prevention or recordkeeping needs.</p>
       </section>
 
       <section>
-        <h3>8. Contact and updates</h3>
+        <h3>8. Children</h3>
+        <p>The games are not intended for children under 13, and we do not knowingly collect personal information from children under 13. Microsoft Clarity is not loaded unless a visitor separately confirms they are at least 18 years old and allows analytics.</p>
+      </section>
+
+      <section>
+        <h3>9. Contact and updates</h3>
         <p>Questions or privacy requests may be sent through the official <a href="${CONTACT_URL}" target="_blank" rel="noopener noreferrer">Monoblend Coffee Instagram account</a>. We may update this policy and will request a new confirmation when a material update requires it.</p>
       </section>
     </article>`;

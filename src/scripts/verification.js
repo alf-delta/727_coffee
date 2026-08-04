@@ -27,7 +27,7 @@ export function mountContactVerification(container, {
   function renderPhoneStep() {
     if (destroyed) return;
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification">
+      <section class="game-lobby game-lobby--verification" data-clarity-mask="true">
         <header class="game-lobby__header">
           <span class="game-lobby__eyebrow">YOUR BEST RUN IS SAVED</span>
           <strong>GET YOUR COUPON</strong>
@@ -61,7 +61,7 @@ export function mountContactVerification(container, {
   function renderEmailStep() {
     if (destroyed) return;
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification">
+      <section class="game-lobby game-lobby--verification" data-clarity-mask="true">
         <header class="game-lobby__header">
           <span class="game-lobby__eyebrow">OPTIONAL EXTRA CHANCE</span>
           <strong>UNLOCK ONE MORE RUN</strong>
@@ -103,7 +103,7 @@ export function mountContactVerification(container, {
   function renderEmailCouponStep() {
     if (destroyed) return;
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification">
+      <section class="game-lobby game-lobby--verification" data-clarity-mask="true">
         <header class="game-lobby__header">
           <span class="game-lobby__eyebrow">YOUR BEST RUN IS SAVED</span>
           <strong>GET YOUR COUPON</strong>
@@ -177,7 +177,7 @@ export function mountContactVerification(container, {
     if (destroyed) return;
     const isPhone = challenge.channel === 'sms';
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification">
+      <section class="game-lobby game-lobby--verification" data-clarity-mask="true">
         <header class="game-lobby__header">
           <span class="game-lobby__eyebrow">${isPhone ? 'TEXT SENT' : 'EMAIL SENT'}</span>
           <strong>ENTER YOUR CODE</strong>
@@ -257,7 +257,7 @@ export function mountContactVerification(container, {
   function renderPostPhoneStep() {
     if (destroyed) return;
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification game-lobby--verified" aria-live="polite">
+      <section class="game-lobby game-lobby--verification game-lobby--verified" aria-live="polite" data-clarity-mask="true">
         <header class="game-lobby__header">
           <span class="game-lobby__eyebrow">PHONE VERIFIED</span>
           <strong>GO BIGGER OR CASH IN?</strong>
@@ -280,7 +280,7 @@ export function mountContactVerification(container, {
     if (destroyed) return;
     const remaining = Math.max(0, Number(verified.attemptsRemainingToday) || 0);
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification game-lobby--verified" aria-live="polite">
+      <section class="game-lobby game-lobby--verification game-lobby--verified" aria-live="polite" data-clarity-mask="true">
         <header class="game-lobby__header">
           <span class="game-lobby__eyebrow">EMAIL VERIFIED</span>
           <strong>YOUR EXTRA RUN IS READY</strong>
@@ -301,7 +301,7 @@ export function mountContactVerification(container, {
   function renderClaimLoading() {
     if (destroyed) return;
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification game-lobby--verified" aria-live="polite">
+      <section class="game-lobby game-lobby--verification game-lobby--verified" aria-live="polite" data-clarity-mask="true">
         <header class="game-lobby__header">
           <span class="game-lobby__eyebrow">EMAIL VERIFIED</span>
           <strong>PREPARING YOUR COUPON…</strong>
@@ -314,7 +314,7 @@ export function mountContactVerification(container, {
   function renderClaimError(message) {
     if (destroyed) return;
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification">
+      <section class="game-lobby game-lobby--verification" data-clarity-mask="true">
         <header class="game-lobby__header">
           <span class="game-lobby__eyebrow">EMAIL VERIFIED</span>
           <strong>COUPON NOT READY</strong>
@@ -360,7 +360,7 @@ export function mountContactVerification(container, {
     const code = escapeHtml(reward.couponCode || '');
     const deliveredTo = reward.delivery?.masked || reward.contact?.masked;
     container.innerHTML = `
-      <section class="game-lobby game-lobby--verification game-lobby--coupon" aria-live="polite">
+      <section class="game-lobby game-lobby--verification game-lobby--coupon" aria-live="polite" data-clarity-mask="true">
         <span class="game-lobby__eyebrow">YOUR BEST RESULT</span>
         <strong class="contact-verify__discount">${Number(reward.discountPercent) || 0}% OFF</strong>
         <span class="contact-verify__best">BEST OF ${Number(reward.attemptsUsed) || 1} RUNS · RUN ${Number(reward.bestAttemptNumber) || 1}</span>

@@ -949,7 +949,7 @@ export function mount(container, options = {}) {
     const attemptsUsed = Math.max(1, Number(result.attemptsUsed) || 1);
     const bestAttemptNumber = Math.max(1, Number(result.bestAttemptNumber) || 1);
     prompt.innerHTML = `
-      <div class="game__result-card game__coupon-card">
+      <div class="game__result-card game__coupon-card" data-clarity-mask="true">
         <span class="game__eyebrow">YOUR BEST RESULT</span>
         <strong class="game__reward">${bestDiscount}% OFF</strong>
         <span class="game__result-score">BEST OF ${attemptsUsed} RUNS · RUN ${bestAttemptNumber}</span>
@@ -994,7 +994,7 @@ export function mount(container, options = {}) {
         if (status.status === 'redeemed') {
           clearInterval(couponTimer);
           prompt.innerHTML = `
-            <div class="game__result-card game__coupon-card is-redeemed">
+            <div class="game__result-card game__coupon-card is-redeemed" data-clarity-mask="true">
               <span class="game__eyebrow">COUPON REDEEMED</span>
               <strong class="game__reward">${bestDiscount}% OFF</strong>
               <span class="game__coupon-note">DISCOUNT APPLIED TO THE ORDER</span>

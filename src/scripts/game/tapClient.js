@@ -161,8 +161,23 @@ export function mount(container, options = {}) {
   const visibilityEvents = [];
   const pointerDownAt = new Map();
   const activePointers = new Set();
+  const activeImpacts = new Set();
+  const impactCleanupTimers = new Map();
+  const reduceMotionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+
+  function removeImpact(impact) {
+    clearTimeout(impactCleanupTimers.get(impact));
+    impactCleanupTimers.delete(impact);
+    activeImpacts.delete(impact);
+    impact.remove();
+  }
+
+  function clearImpacts() {
+    [...activeImpacts].forEach(removeImpact);
+  }
 
   function setPhase(nextPhase) {
+    if (nextPhase !== 'playing') clearImpacts();
     phase = nextPhase;
     game.dataset.phase = nextPhase;
   }
@@ -300,6 +315,7 @@ export function mount(container, options = {}) {
   }
 
   function spawnImpact(clientX, clientY) {
+    if (reduceMotionQuery?.matches) return;
     const rect = game.getBoundingClientRect();
     const impact = document.createElement('span');
     impact.className = 'tapgame__impact';
@@ -307,7 +323,11 @@ export function mount(container, options = {}) {
     impact.style.left = `${clamp(clientX - rect.left, 28, rect.width - 28)}px`;
     impact.style.top = `${clamp(clientY - rect.top, 28, rect.height - 28)}px`;
     game.append(impact);
-    impact.addEventListener('animationend', () => impact.remove(), { once: true });
+    activeImpacts.add(impact);
+    const cleanup = () => removeImpact(impact);
+    impact.addEventListener('animationend', cleanup, { once: true });
+    impact.addEventListener('animationcancel', cleanup, { once: true });
+    impactCleanupTimers.set(impact, setTimeout(cleanup, 700));
   }
 
   function animateButton() {
@@ -750,7 +770,7 @@ export function mount(container, options = {}) {
         <div class="tapgame__token">
           BEST OF ${attemptsUsed} SHOTS · SHOT ${bestAttemptNumber}
         </div>
-        <div class="tapgame__coupon-code" aria-label="Coupon code ${code}">
+        <div class="tapgame__coupon-code" aria-label="Coupon code ${code}" data-clarity-mask="true">
           <span>${code.slice(0, 4)}</span>
           <span>${code.slice(4)}</span>
         </div>
@@ -776,6 +796,7 @@ export function mount(container, options = {}) {
     visibilityEvents.length = 0;
     pointerDownAt.clear();
     activePointers.clear();
+    clearImpacts();
     displayedPressure = 0;
     latestPressure = 0;
     visualCombo = 0;
@@ -811,6 +832,7 @@ export function mount(container, options = {}) {
       target.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('pointerup', onPointerEnd);
       window.removeEventListener('pointercancel', onPointerEnd);
+      clearImpacts();
       panel?.classList.remove('overlay__panel--tap');
     },
   };

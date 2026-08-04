@@ -3,6 +3,7 @@ import { inject } from '@vercel/analytics';
 import { renderMenu } from './menu.js';
 import { renderLegalDocument } from './legal.js';
 import { mountContactVerification } from './verification.js';
+import { initClarityConsent } from './clarity.js';
 import { LEGAL_VERSION } from '../shared/legal.js';
 
 createIcons({ icons: { MapPin } });
@@ -21,7 +22,10 @@ const checkerPath = location.pathname.replace(/\/+$/, '') || '/';
 const isCouponDesk = checkerPath === '/checker'
   || new URLSearchParams(location.search).get('mode') === 'redeem';
 
-if (!isCouponDesk) inject();
+if (!isCouponDesk) {
+  inject();
+  initClarityConsent();
+}
 
 if (isCouponDesk) {
   import('./couponRedeem.js').then(({ mountCouponDesk }) => {
@@ -365,7 +369,7 @@ if (isCouponDesk) {
               ? 'Your coupon has already been used. Here it is for your records.'
               : 'Done playing? No problem — your best discount is saved right here.'}</span>
           </header>
-          <div class="daily-coupon${redeemed ? ' is-redeemed' : ''}">
+          <div class="daily-coupon${redeemed ? ' is-redeemed' : ''}" data-clarity-mask="true">
             <div class="daily-coupon__topline">
               <span>${redeemed ? 'COUPON USED' : "TODAY'S COUPON"}</span>
               <strong>${discount}% OFF</strong>
