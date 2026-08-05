@@ -4,6 +4,7 @@ import { renderMenu } from './menu.js';
 import { renderLegalDocument } from './legal.js';
 import { mountContactVerification } from './verification.js';
 import { initClarityConsent } from './clarity.js';
+import { mountCouponQr } from './couponQr.js';
 import { LEGAL_VERSION } from '../shared/legal.js';
 
 createIcons({ icons: { MapPin } });
@@ -720,6 +721,7 @@ if (isCouponDesk) {
             <button class="daily-coupon__code" type="button" data-role="copy-daily-coupon" aria-label="Coupon code ${code}. Tap to copy.">
               <span>${code.slice(0, 4)}</span><span>${code.slice(4)}</span>
             </button>
+            ${redeemed ? '' : '<div class="coupon-qr" data-role="coupon-qr"><span>PREPARING QR…</span></div>'}
             <span class="daily-coupon__copy-hint" data-role="coupon-copy-hint">${redeemed ? 'REDEEMED TODAY' : 'TAP CODE TO COPY'}</span>
             <div class="daily-coupon__validity">
               <i aria-hidden="true"></i>
@@ -731,6 +733,8 @@ if (isCouponDesk) {
           </div>
           <p class="daily-coupon__tomorrow"><strong>NEW DAY, NEW SHOT.</strong> Come back tomorrow to play again and unlock a new discount.</p>
         </section>`;
+
+      if (!redeemed) mountCouponQr(gameRoot, coupon.couponCode);
 
       const copyButton = gameRoot.querySelector('[data-role="copy-daily-coupon"]');
       const copyHint = gameRoot.querySelector('[data-role="coupon-copy-hint"]');

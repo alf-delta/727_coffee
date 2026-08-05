@@ -1,3 +1,5 @@
+import { parseCouponQrPayload } from './couponQr.js';
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -41,8 +43,26 @@ function formatRemaining(seconds) {
 
 export function mountCouponDesk(body) {
   let destroyed = false;
+  let activeScanner = null;
+  let scannerStarting = false;
+  let scannerRequestId = 0;
+
+  function stopScanner({ hide = true } = {}) {
+    scannerRequestId += 1;
+    scannerStarting = false;
+    const scanner = activeScanner;
+    activeScanner = null;
+    scanner?.stop();
+    scanner?.destroy();
+    const scannerView = body.querySelector('[data-role="coupon-scanner"]');
+    if (scannerView && hide) scannerView.hidden = true;
+  }
+
+  const stopScannerOnPageHide = () => stopScanner();
+  window.addEventListener('pagehide', stopScannerOnPageHide);
 
   function shell(content, { signedIn = false } = {}) {
+    stopScanner();
     body.innerHTML = `
       <main class="coupon-desk">
         <section class="coupon-desk__panel">
@@ -117,6 +137,19 @@ export function mountCouponDesk(body) {
         <span><i aria-hidden="true"></i> STAFF SESSION ACTIVE</span>
         <button type="button" data-action="checker-logout">SIGN OUT</button>
       </div>
+      <div class="coupon-desk__scan-launcher">
+        <button type="button" data-action="start-coupon-scan">SCAN COUPON QR</button>
+        <span>Use the rear camera for instant verification</span>
+      </div>
+      <section class="coupon-desk__scanner" data-role="coupon-scanner" aria-label="Coupon QR scanner" hidden>
+        <div class="coupon-desk__camera">
+          <video muted playsinline></video>
+          <div class="coupon-desk__reticle" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        </div>
+        <p data-role="scanner-status" aria-live="polite">Point the camera at the guest’s QR code.</p>
+        <button type="button" data-action="stop-coupon-scan">CLOSE CAMERA</button>
+      </section>
+      <div class="coupon-desk__manual-divider"><span>OR ENTER MANUALLY</span></div>
       <form class="coupon-desk__form">
         <label>
           Guest coupon code
@@ -138,6 +171,11 @@ export function mountCouponDesk(body) {
     const form = body.querySelector('.coupon-desk__form');
     const codeInput = form.elements.code;
     const resultEl = body.querySelector('[data-role="result"]');
+    const scanButton = body.querySelector('[data-action="start-coupon-scan"]');
+    const scannerView = body.querySelector('[data-role="coupon-scanner"]');
+    const scannerStatus = body.querySelector('[data-role="scanner-status"]');
+    const scannerVideo = scannerView.querySelector('video');
+    let scanLocked = false;
 
     codeInput.addEventListener('input', () => {
       const raw = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
@@ -147,6 +185,77 @@ export function mountCouponDesk(body) {
     body.querySelector('[data-action="checker-logout"]').addEventListener('click', async () => {
       await fetch('/api/checker/logout', { method: 'POST' }).catch(() => {});
       renderLogin();
+    });
+
+    body.querySelector('[data-action="stop-coupon-scan"]').addEventListener('click', () => {
+      stopScanner();
+      scanButton.disabled = false;
+      scanButton.textContent = 'SCAN COUPON QR';
+    });
+
+    scanButton.addEventListener('click', async () => {
+      if (scannerStarting || activeScanner) return;
+      const requestId = ++scannerRequestId;
+      scannerStarting = true;
+      scanLocked = false;
+      scanButton.disabled = true;
+      scanButton.textContent = 'OPENING CAMERA…';
+      scannerView.hidden = false;
+      scannerView.classList.remove('is-error');
+      scannerStatus.textContent = 'Starting the rear camera…';
+
+      try {
+        if (!window.isSecureContext) {
+          throw new Error('Camera scanning requires a secure HTTPS connection.');
+        }
+
+        const module = await import('qr-scanner');
+        const QrScanner = module.default;
+        if (!await QrScanner.hasCamera()) throw new Error('No camera is available on this device.');
+        if (destroyed || !scannerView.isConnected || requestId !== scannerRequestId) return;
+
+        const scanner = new QrScanner(scannerVideo, (scanResult) => {
+          if (scanLocked) return;
+          const couponCode = parseCouponQrPayload(scanResult?.data || scanResult);
+          if (!couponCode) {
+            scannerStatus.textContent = 'That is not a Monoblend coupon. Try another QR code.';
+            return;
+          }
+
+          scanLocked = true;
+          codeInput.value = `${couponCode.slice(0, 4)} ${couponCode.slice(4)}`;
+          scannerStatus.textContent = 'Coupon found. Verifying now…';
+          stopScanner();
+          requestAnimationFrame(() => form.requestSubmit());
+        }, {
+          preferredCamera: 'environment',
+          maxScansPerSecond: 12,
+          highlightScanRegion: false,
+          highlightCodeOutline: true,
+          returnDetailedScanResult: true,
+        });
+
+        activeScanner = scanner;
+        await scanner.start();
+        if (destroyed || requestId !== scannerRequestId || activeScanner !== scanner) {
+          scanner.stop();
+          scanner.destroy();
+          return;
+        }
+        scannerStatus.textContent = 'Hold the guest’s QR code inside the frame.';
+        scanButton.textContent = 'CAMERA ACTIVE';
+      } catch (error) {
+        if (requestId !== scannerRequestId) return;
+        stopScanner({ hide: false });
+        scannerView.classList.add('is-error');
+        scannerStatus.textContent = error?.name === 'NotAllowedError'
+          ? 'Camera access was blocked. Allow it in browser settings or enter the code manually.'
+          : (error?.message || 'Could not start the camera. Enter the code manually.');
+        scanButton.disabled = false;
+        scanButton.textContent = 'TRY CAMERA AGAIN';
+      } finally {
+        if (requestId === scannerRequestId) scannerStarting = false;
+      }
     });
 
     form.addEventListener('submit', async (event) => {
@@ -195,12 +304,18 @@ export function mountCouponDesk(body) {
         if (!button.isConnected) return;
         button.disabled = false;
         button.textContent = 'Verify & redeem →';
-        codeInput.focus();
-        codeInput.select();
+        scanButton.disabled = false;
+        scanButton.textContent = 'SCAN COUPON QR';
+        if (matchMedia('(pointer: fine)').matches) {
+          codeInput.focus();
+          codeInput.select();
+        }
       }
     });
 
-    requestAnimationFrame(() => codeInput.focus({ preventScroll: true }));
+    if (matchMedia('(pointer: fine)').matches) {
+      requestAnimationFrame(() => codeInput.focus({ preventScroll: true }));
+    }
   }
 
   shell(`
@@ -219,6 +334,8 @@ export function mountCouponDesk(body) {
   return {
     destroy() {
       destroyed = true;
+      window.removeEventListener('pagehide', stopScannerOnPageHide);
+      stopScanner();
     },
   };
 }

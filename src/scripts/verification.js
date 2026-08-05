@@ -1,3 +1,5 @@
+import { mountCouponQr } from './couponQr.js';
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -367,11 +369,13 @@ export function mountContactVerification(container, {
         <div class="contact-verify__coupon-code" aria-label="Coupon code ${code}">
           <span>${code.slice(0, 4)}</span><span>${code.slice(4)}</span>
         </div>
+        <div class="coupon-qr" data-role="coupon-qr"><span>PREPARING QR…</span></div>
         <p>Show this code to your barista before payment. It expires at the end of today.</p>
         ${deliveredTo ? `<small>${reward.delivery?.delivered
           ? (reward.delivery?.channel === 'email' ? 'EMAILED TO' : 'TEXTED TO')
           : 'SAVE THIS CODE · DELIVERY TO'} ${escapeHtml(deliveredTo)}</small>` : ''}
       </section>`;
+    mountCouponQr(container, reward.couponCode);
   }
 
   if (initialStep === 'post-phone') renderPostPhoneStep();

@@ -18,6 +18,7 @@ import {
   clamp,
 } from '../../shared/flappyPhysics.js';
 import { computeFlappyResult } from '../../shared/flappyScoring.js';
+import { mountCouponQr } from '../couponQr.js';
 
 const COLORS = {
   ink: '#211a3a',
@@ -981,6 +982,7 @@ export function mount(container, options = {}) {
         <span class="game__result-score">BEST OF ${attemptsUsed} RUNS · RUN ${bestAttemptNumber}</span>
         <span class="game__coupon-note">SHOW THIS CODE TO YOUR BARISTA BEFORE PAYMENT</span>
         <div class="game__coupon-code" aria-label="Coupon code">${code.slice(0, 4)} <span>${code.slice(4)}</span></div>
+        <div class="coupon-qr coupon-qr--pixel" data-role="coupon-qr"><span>PREPARING QR…</span></div>
         <div class="game__coupon-meta">
           <span>EXPIRES IN</span>
           <strong data-role="coupon-time">20:00</strong>
@@ -988,6 +990,7 @@ export function mount(container, options = {}) {
         <p class="game__coupon-help">Staff will verify the code at the counter. It cannot be used again after redemption.</p>
         <button type="button" class="game__pixel-button game__pixel-button--secondary" data-role="close-coupon">DONE</button>
       </div>`;
+    mountCouponQr(prompt, result.couponCode);
 
     let statusCheckTick = 0;
     const updateCoupon = async () => {

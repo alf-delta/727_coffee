@@ -4,6 +4,7 @@ import {
   computeTapSeries,
 } from '../../shared/tapPhysics.js';
 import { computeTapProgress } from '../../shared/tapProgress.js';
+import { mountCouponQr } from '../couponQr.js';
 
 const MAX_PRESSURE_BAR = 12;
 const IDEAL_PRESSURE_MIN = 8.5;
@@ -802,9 +803,11 @@ export function mount(container, options = {}) {
           <span>${code.slice(0, 4)}</span>
           <span>${code.slice(4)}</span>
         </div>
+        <div class="coupon-qr coupon-qr--tap" data-role="coupon-qr"><span>PREPARING QR…</span></div>
         <small class="tapgame__coupon-note">SHOW THIS CODE TO YOUR BARISTA</small>
         <button type="button" class="tapgame__result-button" data-role="done">DONE</button>
       </div>`;
+    mountCouponQr(prompt, result.couponCode);
     prompt.querySelector('[data-role="done"]')?.addEventListener('click', () => renderResult({
       ...result,
       rewardToken: result.rewardToken,

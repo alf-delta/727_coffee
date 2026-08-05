@@ -81,6 +81,7 @@ function privacyDocument() {
       <section>
         <h3>2. How we use information</h3>
         <p>We use information to operate the games, enforce daily limits, verify results, prevent abuse, issue and redeem coupons, provide requested messages, maintain security, and understand service performance. If you separately opt in, we also use your email address to send occasional Monoblend Coffee news and promotional offers.</p>
+        <p>The optional staff QR scanner reads coupon codes from camera frames locally in the staff member’s browser. Camera images are not uploaded to or stored by us.</p>
       </section>
 
       <section>

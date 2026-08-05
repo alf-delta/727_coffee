@@ -2192,6 +2192,40 @@ body {
   color: #f58b72;
 }
 
+.coupon-qr {
+  display: grid;
+  place-items: center;
+  width: clamp(112px, 31vw, 146px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 6px;
+  border: 3px solid #211a3a;
+  border-radius: 8px;
+  background: #fff8e8;
+  color: #5b3568;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.coupon-qr__canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  image-rendering: pixelated;
+}
+
+.coupon-qr--pixel {
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #5b3568;
+}
+
+.coupon-qr--tap {
+  border-color: #c4933b;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 2px #1b1f1d;
+}
+
 .game-lobby--verification {
   justify-content: center;
   gap: clamp(16px, 3svh, 24px);
@@ -4298,6 +4332,142 @@ body {
   gap: 15px;
 }
 
+.coupon-desk__scan-launcher {
+  display: grid;
+  gap: 7px;
+  text-align: center;
+}
+
+.coupon-desk__scan-launcher button {
+  min-height: 58px;
+  border: 0;
+  border-radius: 10px;
+  background: #2d2926;
+  color: #fffdf7;
+  font: 900 13px/1 Inter, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.coupon-desk__scan-launcher button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.coupon-desk__scan-launcher span {
+  color: #766f69;
+  font-size: 10px;
+}
+
+.coupon-desk__scanner {
+  display: grid;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid #bcb4a7;
+  border-radius: 12px;
+  background: #211e1b;
+  color: #fffdf7;
+}
+
+.coupon-desk__scanner[hidden] {
+  display: none;
+}
+
+.coupon-desk__camera {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 9px;
+  background: #090909;
+}
+
+.coupon-desk__camera video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coupon-desk__reticle {
+  position: absolute;
+  inset: 13%;
+  pointer-events: none;
+}
+
+.coupon-desk__reticle i {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-color: #fff0c7;
+  border-style: solid;
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 65%));
+}
+
+.coupon-desk__reticle i:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-width: 3px 0 0 3px;
+}
+
+.coupon-desk__reticle i:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-width: 3px 3px 0 0;
+}
+
+.coupon-desk__reticle i:nth-child(3) {
+  right: 0;
+  bottom: 0;
+  border-width: 0 3px 3px 0;
+}
+
+.coupon-desk__reticle i:nth-child(4) {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 3px 3px;
+}
+
+.coupon-desk__scanner p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.coupon-desk__scanner > button {
+  min-height: 38px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: 800 10px/1 Inter, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.08em;
+}
+
+.coupon-desk__scanner.is-error {
+  border-color: #bd6c60;
+  background: #4a2824;
+}
+
+.coupon-desk__manual-divider {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #8a8178;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.coupon-desk__manual-divider::before,
+.coupon-desk__manual-divider::after {
+  flex: 1;
+  height: 1px;
+  background: #d8d1c5;
+  content: "";
+}
+
 .coupon-desk__session {
   display: flex;
   align-items: center;
@@ -4462,4 +4632,20 @@ body {
   font-size: 12px;
   text-align: center;
   text-decoration: none;
+}
+
+@media (max-width: 480px) {
+  .coupon-desk {
+    align-items: start;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .coupon-desk__panel {
+    gap: 16px;
+    padding: 20px 16px;
+  }
+
+  .coupon-desk__camera {
+    max-height: 42svh;
+  }
 }
