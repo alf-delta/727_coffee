@@ -138,8 +138,16 @@ export function mountCouponDesk(body) {
         <button type="button" data-action="checker-logout">SIGN OUT</button>
       </div>
       <div class="coupon-desk__scan-launcher">
-        <button type="button" data-action="start-coupon-scan">SCAN COUPON QR</button>
-        <span>Use the rear camera for instant verification</span>
+        <span class="coupon-desk__scan-kicker">FASTEST WAY TO REDEEM</span>
+        <button type="button" data-action="start-coupon-scan">
+          <span class="coupon-desk__scan-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="coupon-desk__scan-copy">
+            <strong>SCAN COUPON QR</strong>
+            <small>OPEN CAMERA</small>
+          </span>
+          <span class="coupon-desk__scan-arrow" aria-hidden="true">→</span>
+        </button>
+        <span class="coupon-desk__scan-hint">Point, scan, and verify automatically</span>
       </div>
       <section class="coupon-desk__scanner" data-role="coupon-scanner" aria-label="Coupon QR scanner" hidden>
         <div class="coupon-desk__camera">
@@ -175,7 +183,16 @@ export function mountCouponDesk(body) {
     const scannerView = body.querySelector('[data-role="coupon-scanner"]');
     const scannerStatus = body.querySelector('[data-role="scanner-status"]');
     const scannerVideo = scannerView.querySelector('video');
+    const scanButtonTitle = scanButton.querySelector('strong');
+    const scanButtonDetail = scanButton.querySelector('small');
     let scanLocked = false;
+
+    const setScanButtonState = (title, detail, { disabled = false, active = false } = {}) => {
+      scanButtonTitle.textContent = title;
+      scanButtonDetail.textContent = detail;
+      scanButton.disabled = disabled;
+      scanButton.classList.toggle('is-active', active);
+    };
 
     codeInput.addEventListener('input', () => {
       const raw = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
@@ -189,8 +206,7 @@ export function mountCouponDesk(body) {
 
     body.querySelector('[data-action="stop-coupon-scan"]').addEventListener('click', () => {
       stopScanner();
-      scanButton.disabled = false;
-      scanButton.textContent = 'SCAN COUPON QR';
+      setScanButtonState('SCAN COUPON QR', 'OPEN CAMERA');
     });
 
     scanButton.addEventListener('click', async () => {
@@ -198,8 +214,7 @@ export function mountCouponDesk(body) {
       const requestId = ++scannerRequestId;
       scannerStarting = true;
       scanLocked = false;
-      scanButton.disabled = true;
-      scanButton.textContent = 'OPENING CAMERA…';
+      setScanButtonState('OPENING CAMERA…', 'ALLOW CAMERA ACCESS', { disabled: true, active: true });
       scannerView.hidden = false;
       scannerView.classList.remove('is-error');
       scannerStatus.textContent = 'Starting the rear camera…';
@@ -243,7 +258,7 @@ export function mountCouponDesk(body) {
           return;
         }
         scannerStatus.textContent = 'Hold the guest’s QR code inside the frame.';
-        scanButton.textContent = 'CAMERA ACTIVE';
+        setScanButtonState('CAMERA ACTIVE', 'POINT AT COUPON', { disabled: true, active: true });
       } catch (error) {
         if (requestId !== scannerRequestId) return;
         stopScanner({ hide: false });
@@ -251,8 +266,7 @@ export function mountCouponDesk(body) {
         scannerStatus.textContent = error?.name === 'NotAllowedError'
           ? 'Camera access was blocked. Allow it in browser settings or enter the code manually.'
           : (error?.message || 'Could not start the camera. Enter the code manually.');
-        scanButton.disabled = false;
-        scanButton.textContent = 'TRY CAMERA AGAIN';
+        setScanButtonState('TRY CAMERA AGAIN', 'OR ENTER CODE BELOW');
       } finally {
         if (requestId === scannerRequestId) scannerStarting = false;
       }
@@ -304,8 +318,7 @@ export function mountCouponDesk(body) {
         if (!button.isConnected) return;
         button.disabled = false;
         button.textContent = 'Verify & redeem →';
-        scanButton.disabled = false;
-        scanButton.textContent = 'SCAN COUPON QR';
+        setScanButtonState('SCAN COUPON QR', 'OPEN CAMERA');
         if (matchMedia('(pointer: fine)').matches) {
           codeInput.focus();
           codeInput.select();
