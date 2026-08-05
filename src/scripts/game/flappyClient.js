@@ -881,11 +881,14 @@ export function mount(container, options = {}) {
           : `THIS RUN ${currentDiscount}% · BEST FROM RUN ${bestAttemptNumber}`;
         prompt.innerHTML = `
           <div class="game__result-card">
-            <span class="game__eyebrow">${remainingLabel}</span>
+            <span class="game__eyebrow">YOUR BEST RESULT</span>
             <strong class="game__reward">${bestDiscount}% OFF</strong>
             <span class="game__result-score">${bestLabel}</span>
             <div class="game__result-actions">
-              <button type="button" class="game__pixel-button" data-role="again">USE NEXT ATTEMPT</button>
+              <button type="button" class="game__pixel-button game__pixel-button--again" data-role="again">
+                <span>PLAY AGAIN</span>
+                <small>${remainingLabel}</small>
+              </button>
               <button type="button" class="game__pixel-button game__pixel-button--secondary" data-role="claim-now">CLAIM BEST COUPON NOW</button>
             </div>
           </div>`;

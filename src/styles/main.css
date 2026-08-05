@@ -2522,6 +2522,25 @@ body {
   background: #ffd166;
 }
 
+.game__pixel-button--again {
+  display: grid;
+  gap: 5px;
+  place-items: center;
+  padding-block: 12px 10px;
+}
+
+.game__pixel-button--again > span {
+  font-size: clamp(17px, 5.5vw, 22px);
+  line-height: 1;
+  letter-spacing: 0.06em;
+}
+
+.game__pixel-button--again > small {
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+}
+
 .game__result-actions {
   display: grid;
   gap: 10px;
@@ -3465,6 +3484,25 @@ body {
   box-shadow:
     0 1px 0 #472b08,
     inset 0 1px rgb(255 255 255 / 28%);
+}
+
+.tapgame__result-button--again {
+  display: grid;
+  gap: 5px;
+  place-items: center;
+  padding-block: 12px 10px;
+}
+
+.tapgame__result-button--again > span {
+  font-size: clamp(17px, 5.5vw, 21px);
+  line-height: 1;
+  letter-spacing: 0.06em;
+}
+
+.tapgame__result-button--again > small {
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.12em;
 }
 
 .tapgame__result-actions {

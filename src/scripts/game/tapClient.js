@@ -688,11 +688,14 @@ export function mount(container, options = {}) {
           : `THIS SHOT ${currentDiscount}% · BEST FROM SHOT ${bestAttemptNumber}`;
         prompt.innerHTML = `
           <div class="tapgame__result-card">
-            <span>${remainingLabel}</span>
+            <span>YOUR BEST RESULT</span>
             <strong class="tapgame__result-reward">${bestDiscount}% OFF</strong>
             <div class="tapgame__token">${bestLabel}</div>
             <div class="tapgame__result-actions">
-              <button type="button" class="tapgame__result-button" data-role="again">USE NEXT ATTEMPT</button>
+              <button type="button" class="tapgame__result-button tapgame__result-button--again" data-role="again">
+                <span>PLAY AGAIN</span>
+                <small>${remainingLabel}</small>
+              </button>
               <button type="button" class="tapgame__result-button" data-role="claim-now">CLAIM BEST COUPON NOW</button>
             </div>
           </div>`;
