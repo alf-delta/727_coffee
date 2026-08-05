@@ -134,6 +134,10 @@ export function mount(container, options = {}) {
   let accumulatorMs = 0;
   let simulatedTimeMs = 0;
   let nextValidFlapIndex = 0;
+  let lastIdleDrawTs = -Infinity;
+  let lastHudStage = '';
+  let lastHudScore = '';
+  let lastHudDiscount = '';
 
   function setPhase(nextPhase) {
     phase = nextPhase;
@@ -159,6 +163,10 @@ export function mount(container, options = {}) {
       tMs: performance.now() - sessionStartPerf,
       state: document.visibilityState,
     });
+    if (document.hidden) {
+      if (raf) cancelAnimationFrame(raf);
+      finish({ skipCelebration: true, interrupted: true });
+    }
   }
   document.addEventListener('visibilitychange', onVisibilityChange);
 
@@ -719,17 +727,31 @@ export function mount(container, options = {}) {
   function updateHud() {
     const scoring = computeFlappyResult({ passedObstacles });
     const stage = getDifficultyStage(passedObstacles);
-    hudStage.textContent = stage.label;
-    hudScore.textContent = String(passedObstacles).padStart(2, '0');
-    hudDiscount.textContent = `${scoring.discountPercent}%`;
+    const nextScore = String(passedObstacles).padStart(2, '0');
+    const nextDiscount = `${scoring.discountPercent}%`;
+    if (lastHudStage !== stage.label) {
+      lastHudStage = stage.label;
+      hudStage.textContent = stage.label;
+    }
+    if (lastHudScore !== nextScore) {
+      lastHudScore = nextScore;
+      hudScore.textContent = nextScore;
+    }
+    if (lastHudDiscount !== nextDiscount) {
+      lastHudDiscount = nextDiscount;
+      hudDiscount.textContent = nextDiscount;
+    }
   }
 
   function loop(ts) {
     if (destroyed || !['playing', 'ready', 'countdown'].includes(phase)) return;
 
     if (phase === 'ready' || phase === 'countdown') {
-      simulatedTimeMs += 16;
-      draw(simulatedTimeMs);
+      if (ts - lastIdleDrawTs >= 1000 / 30) {
+        simulatedTimeMs += ts - Math.max(lastIdleDrawTs, ts - 1000 / 30);
+        lastIdleDrawTs = ts;
+        draw(simulatedTimeMs);
+      }
       raf = requestAnimationFrame(loop);
       return;
     }
@@ -759,23 +781,24 @@ export function mount(container, options = {}) {
     raf = requestAnimationFrame(loop);
   }
 
-  async function finish() {
+  async function finish({ skipCelebration = false, interrupted = false } = {}) {
     if (phase !== 'playing') return;
     setPhase('celebrating');
     const scoring = computeFlappyResult({ passedObstacles });
     prompt.dataset.pos = 'top';
     prompt.innerHTML = `
       <div class="game__finish-callout">
-        <span>FLIGHT COMPLETE</span>
+        <span>${interrupted ? 'SCREEN LEFT · SCORE LOCKED' : 'FLIGHT COMPLETE'}</span>
         <strong>${passedObstacles} GATES · ${scoring.discountPercent}% OFF</strong>
       </div>`;
-    navigator.vibrate?.([30, 40, 30, 80, 45]);
+    if (!interrupted) navigator.vibrate?.([30, 40, 30, 80, 45]);
 
     const finishedClientElapsedMs = performance.now() - attemptRequestPerf;
     requestController = new AbortController();
     const resultPromise = fetch('/api/game/finish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
       body: JSON.stringify({
         attemptId: attempt.attemptId,
         nonce: attempt.nonce,
@@ -794,7 +817,7 @@ export function mount(container, options = {}) {
       .catch((error) => ({ error }));
 
     try {
-      await playFinishCelebration();
+      if (!skipCelebration) await playFinishCelebration();
       if (destroyed) return;
       const submission = await resultPromise;
       if (submission.error) throw submission.error;
@@ -1062,6 +1085,10 @@ export function mount(container, options = {}) {
     accumulatorMs = 0;
     simulatedTimeMs = 0;
     nextValidFlapIndex = 0;
+    lastIdleDrawTs = -Infinity;
+    lastHudStage = '';
+    lastHudScore = '';
+    lastHudDiscount = '';
     hudStage.textContent = 'TAKEOFF';
     hudScore.textContent = '00';
     hudDiscount.textContent = '3%';

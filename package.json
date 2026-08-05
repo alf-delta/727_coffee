@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "REWARD_TOKEN_SECRET=dev-only-secret-never-use-in-production COUPON_STAFF_PIN=2468 vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/check-performance-budgets.js",
     "preview": "vite preview",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "smoke": "node scripts/smoke.js",
+    "verify": "npm test && npm run build && npm run smoke"
   },
   "dependencies": {
     "@upstash/redis": "^1.34.0",

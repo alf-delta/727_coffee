@@ -10,6 +10,8 @@ const IDEAL_PRESSURE_MIN = 8.5;
 const IDEAL_PRESSURE_MAX = 9.7;
 const MIN_FINISH_SEQUENCE_MS = 1450;
 const RESULT_ACTION_GUARD_MS = 450;
+const IMPACT_POOL_SIZE = 12;
+const ANALYSIS_INTERVAL_MS = 1000 / 30;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -153,6 +155,8 @@ export function mount(container, options = {}) {
   let visualCombo = 0;
   let lastTapMs = null;
   let bestCombo = 0;
+  let lastAnalysisFrame = -Infinity;
+  let latestProgress = null;
 
   const rawTaps = [];
   const isTrustedFlags = [];
@@ -164,12 +168,20 @@ export function mount(container, options = {}) {
   const activeImpacts = new Set();
   const impactCleanupTimers = new Map();
   const reduceMotionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const impactPool = Array.from({ length: IMPACT_POOL_SIZE }, () => {
+    const impact = document.createElement('span');
+    impact.className = 'tapgame__impact';
+    impact.textContent = '+1';
+    impact.setAttribute('aria-hidden', 'true');
+    game.append(impact);
+    return impact;
+  });
 
   function removeImpact(impact) {
     clearTimeout(impactCleanupTimers.get(impact));
     impactCleanupTimers.delete(impact);
     activeImpacts.delete(impact);
-    impact.remove();
+    impact.classList.remove('is-active');
   }
 
   function clearImpacts() {
@@ -201,6 +213,13 @@ export function mount(container, options = {}) {
       tMs: performance.now() - sessionStartPerf,
       state: document.visibilityState,
     });
+    if (document.hidden) {
+      if (raf) cancelAnimationFrame(raf);
+      setPhase('settling');
+      game.classList.remove('is-flowing');
+      target.blur();
+      finish({ interrupted: true });
+    }
   }
   document.addEventListener('visibilitychange', onVisibilityChange);
 
@@ -306,7 +325,8 @@ export function mount(container, options = {}) {
     }
     lastTapMs = tMs;
     bestCombo = Math.max(bestCombo, visualCombo);
-    comboEl.textContent = `x${String(visualCombo).padStart(2, '0')}`;
+    const nextCombo = `x${String(visualCombo).padStart(2, '0')}`;
+    if (comboEl.textContent !== nextCombo) comboEl.textContent = nextCombo;
 
     if (visualCombo > 0 && visualCombo % 10 === 0) {
       feedbackEl.textContent = visualCombo >= 30 ? 'BARISTA MODE' : `${visualCombo} TAP STREAK`;
@@ -317,13 +337,12 @@ export function mount(container, options = {}) {
   function spawnImpact(clientX, clientY) {
     if (reduceMotionQuery?.matches) return;
     const rect = game.getBoundingClientRect();
-    const impact = document.createElement('span');
-    impact.className = 'tapgame__impact';
-    impact.textContent = '+1';
+    const impact = impactPool.find((candidate) => !activeImpacts.has(candidate));
+    if (!impact) return;
     impact.style.left = `${clamp(clientX - rect.left, 28, rect.width - 28)}px`;
     impact.style.top = `${clamp(clientY - rect.top, 28, rect.height - 28)}px`;
-    game.append(impact);
     activeImpacts.add(impact);
+    impact.classList.add('is-active');
     const cleanup = () => removeImpact(impact);
     impact.addEventListener('animationend', cleanup, { once: true });
     impact.addEventListener('animationcancel', cleanup, { once: true });
@@ -502,9 +521,12 @@ export function mount(container, options = {}) {
 
   function updateMachine(elapsedMs, pressure, metrics) {
     const remaining = Math.max(0, attempt.maxDurationMs - elapsedMs);
-    timeEl.textContent = (remaining / 1000).toFixed(1);
-    tapCountEl.textContent = String(rawTaps.length).padStart(2, '0');
-    zoneEl.textContent = pressureStatus(pressure, elapsedMs);
+    const nextTime = (remaining / 1000).toFixed(1);
+    const nextTapCount = String(rawTaps.length).padStart(2, '0');
+    const nextZone = pressureStatus(pressure, elapsedMs);
+    if (timeEl.textContent !== nextTime) timeEl.textContent = nextTime;
+    if (tapCountEl.textContent !== nextTapCount) tapCountEl.textContent = nextTapCount;
+    if (zoneEl.textContent !== nextZone) zoneEl.textContent = nextZone;
 
     const pressureBand = pressure < 5.5
       ? 'low'
@@ -513,7 +535,7 @@ export function mount(container, options = {}) {
         : pressure <= IDEAL_PRESSURE_MAX
           ? 'ideal'
           : 'high';
-    game.dataset.pressure = pressureBand;
+    if (game.dataset.pressure !== pressureBand) game.dataset.pressure = pressureBand;
 
     const rhythmCount = rawTaps.length < 3 ? 0 : Math.round(metrics.rhythmStabilityScore * rhythmLights.length);
     rhythmLights.forEach((light, index) => light.classList.toggle('is-on', index < rhythmCount));
@@ -521,29 +543,31 @@ export function mount(container, options = {}) {
     const progress = clamp(elapsedMs / attempt.maxDurationMs, 0, 1);
     const flow = clamp((pressure - 2.8) / 6.2, 0, 1);
     const fill = clamp(progress * (0.38 + flow * 0.62), 0, 0.92);
-    game.style.setProperty('--flow', flow.toFixed(3));
-    game.style.setProperty('--cup-fill', fill.toFixed(3));
+    game.style.setProperty('--flow', flow.toFixed(2));
+    game.style.setProperty('--cup-fill', fill.toFixed(2));
     game.classList.toggle('is-flowing', phase === 'playing' && flow > 0.08);
-    yieldEl.textContent = `${(36 * fill).toFixed(1)}g OUT`;
+    const nextYield = `${(36 * fill).toFixed(1)}g OUT`;
+    if (yieldEl.textContent !== nextYield) yieldEl.textContent = nextYield;
   }
 
-  function loop() {
+  function loop(frameTime) {
     if (destroyed || phase !== 'playing') return;
     const elapsedMs = performance.now() - sessionStartPerf;
     const activeElapsed = Math.min(elapsedMs, attempt.maxDurationMs);
-    const { validTaps } = filterValidTaps(rawTaps);
-    const series = computeTapSeries(validTaps, activeElapsed);
-    latestPressure = series.at(-1)?.smoothedTps ?? 0;
-
-    const progress = computeTapProgress({
-      tapTimestampsMs: rawTaps,
-      durationMs: activeElapsed,
-    });
-    const metrics = progress.metrics;
-    discountEl.textContent = String(progress.scoring.discountPercent);
-
-    updateMachine(elapsedMs, latestPressure, metrics);
-    drawGauge(latestPressure);
+    if (!latestProgress || frameTime - lastAnalysisFrame >= ANALYSIS_INTERVAL_MS) {
+      const { validTaps } = filterValidTaps(rawTaps);
+      const series = computeTapSeries(validTaps, activeElapsed);
+      latestPressure = series.at(-1)?.smoothedTps ?? 0;
+      latestProgress = computeTapProgress({
+        tapTimestampsMs: rawTaps,
+        durationMs: activeElapsed,
+      });
+      lastAnalysisFrame = frameTime;
+      const nextDiscount = String(latestProgress.scoring.discountPercent);
+      if (discountEl.textContent !== nextDiscount) discountEl.textContent = nextDiscount;
+      updateMachine(elapsedMs, latestPressure, latestProgress.metrics);
+      drawGauge(latestPressure);
+    }
 
     if (elapsedMs >= attempt.maxDurationMs) {
       setPhase('settling');
@@ -555,12 +579,12 @@ export function mount(container, options = {}) {
     raf = requestAnimationFrame(loop);
   }
 
-  async function finish() {
+  async function finish({ interrupted = false } = {}) {
     const finishSequenceStartedAt = performance.now();
     feedbackEl.textContent = '';
     prompt.innerHTML = `
       <div class="tapgame__finish-card">
-        <span>EXTRACTION COMPLETE</span>
+        <span>${interrupted ? 'SCREEN LEFT · SCORE LOCKED' : 'EXTRACTION COMPLETE'}</span>
         <div class="tapgame__finish-seal" aria-hidden="true">
           <i></i>
         </div>
@@ -573,6 +597,7 @@ export function mount(container, options = {}) {
       const res = await fetch('/api/game/finish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
         body: JSON.stringify({
           attemptId: attempt.attemptId,
           nonce: attempt.nonce,
@@ -586,7 +611,7 @@ export function mount(container, options = {}) {
         signal: requestController.signal,
       });
       const result = await res.json().catch(() => ({}));
-      const remainingSequenceMs = Math.max(
+      const remainingSequenceMs = interrupted ? 0 : Math.max(
         0,
         MIN_FINISH_SEQUENCE_MS - (performance.now() - finishSequenceStartedAt),
       );
@@ -805,6 +830,8 @@ export function mount(container, options = {}) {
     visualCombo = 0;
     lastTapMs = null;
     bestCombo = 0;
+    lastAnalysisFrame = -Infinity;
+    latestProgress = null;
     comboEl.textContent = 'x00';
     tapCountEl.textContent = '00';
     discountEl.textContent = '3';
@@ -836,6 +863,7 @@ export function mount(container, options = {}) {
       window.removeEventListener('pointerup', onPointerEnd);
       window.removeEventListener('pointercancel', onPointerEnd);
       clearImpacts();
+      impactPool.forEach((impact) => impact.remove());
       panel?.classList.remove('overlay__panel--tap');
     },
   };

@@ -40,30 +40,25 @@ if (isCouponDesk) {
   const menuContent = document.getElementById('menu-content');
   const gameRoot = document.getElementById('game-root');
   const legalContent = document.getElementById('legal-content');
+  const homePage = document.querySelector('.page');
+  const socialGallery = document.querySelector('.social-gallery');
   const socialViewport = document.querySelector('.social-gallery__viewport');
   const socialScroller = document.querySelector('.social-gallery__scroller');
   const socialTrack = document.querySelector('.social-gallery__track');
   const backToTopButton = document.querySelector('[data-action="back-to-top"]');
-
-  if (socialTrack) {
-    const originalSet = socialTrack.querySelector('.social-gallery__set');
-    const setCount = socialTrack.querySelectorAll('.social-gallery__set').length;
-    if (originalSet && setCount === 2) {
-      const leadingClone = originalSet.cloneNode(true);
-      leadingClone.setAttribute('aria-hidden', 'true');
-      leadingClone.dataset.loopClone = 'leading';
-      leadingClone.querySelectorAll('a').forEach((link) => {
-        link.tabIndex = -1;
-        link.removeAttribute('aria-label');
-      });
-      socialTrack.prepend(leadingClone);
-    }
-  }
+  const storyThread = document.querySelector('.thread');
+  const storyFirstChapter = storyThread?.querySelector('.thread__chapter');
+  const storyRevealElements = Array.from(document.querySelectorAll('[data-thread-reveal]'));
+  const storyFrames = Array.from(document.querySelectorAll('.thread__frame'));
 
   const socialVideos = Array.from(document.querySelectorAll('.social-gallery video'));
-  const socialCards = document.querySelectorAll('.social-gallery__card');
+  const socialCards = Array.from(document.querySelectorAll('.social-gallery__card'));
   const visibleSocialVideos = new Set();
-  let socialGalleryPaused = false;
+  const socialVideoVisibility = new Map();
+  const socialVideoReleaseTimers = new Map();
+  let socialGalleryPaused = true;
+  let socialGalleryInView = false;
+  let overlayBlockingSocialGallery = false;
   let socialArcFrame = 0;
   let startSocialArc = () => {};
 
@@ -71,6 +66,11 @@ if (isCouponDesk) {
   let gameLobbyController = null;
 
   const loadAndPlaySocialVideo = (video) => {
+    const releaseTimer = socialVideoReleaseTimers.get(video);
+    if (releaseTimer) {
+      clearTimeout(releaseTimer);
+      socialVideoReleaseTimers.delete(video);
+    }
     if (!video.getAttribute('src')) {
       const source = video.dataset.src;
       if (!source) return;
@@ -82,10 +82,44 @@ if (isCouponDesk) {
     }
   };
 
+  const scheduleSocialVideoRelease = (video) => {
+    video.pause();
+    if (socialVideoReleaseTimers.has(video)) return;
+    const timer = window.setTimeout(() => {
+      socialVideoReleaseTimers.delete(video);
+      if (visibleSocialVideos.has(video) || !video.getAttribute('src')) return;
+      video.removeAttribute('src');
+      video.load();
+    }, 3500);
+    socialVideoReleaseTimers.set(video, timer);
+  };
+
+  const syncVisibleSocialVideos = () => {
+    const nextVisible = new Set(
+      [...socialVideoVisibility.entries()]
+        .filter(([, ratio]) => ratio > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([video]) => video),
+    );
+
+    socialVideos.forEach((video) => {
+      if (nextVisible.has(video)) {
+        visibleSocialVideos.add(video);
+        loadAndPlaySocialVideo(video);
+      } else {
+        visibleSocialVideos.delete(video);
+        scheduleSocialVideoRelease(video);
+      }
+    });
+  };
+
   const setSocialGalleryPaused = (paused) => {
+    if (socialGalleryPaused === paused) return;
     socialGalleryPaused = paused;
     if (paused) {
       cancelAnimationFrame(socialArcFrame);
+      socialArcFrame = 0;
       socialVideos.forEach((video) => video.pause());
       return;
     }
@@ -94,29 +128,24 @@ if (isCouponDesk) {
     startSocialArc();
   };
 
-  if (socialScroller && socialTrack) {
-    const firstSet = socialTrack.querySelector('.social-gallery__set');
-    const loopWidth = firstSet?.offsetWidth || 0;
-    if (loopWidth) socialScroller.scrollLeft = loopWidth;
-  }
+  const syncSocialGalleryState = () => {
+    setSocialGalleryPaused(
+      document.hidden || overlayBlockingSocialGallery || !socialGalleryInView,
+    );
+  };
 
   if (socialScroller && socialVideos.length) {
     if ('IntersectionObserver' in window) {
       const videoObserver = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           const video = entry.target;
-          if (entry.isIntersecting) {
-            visibleSocialVideos.add(video);
-            loadAndPlaySocialVideo(video);
-          } else {
-            visibleSocialVideos.delete(video);
-            video.pause();
-          }
+          socialVideoVisibility.set(video, entry.isIntersecting ? entry.intersectionRatio : 0);
         });
+        syncVisibleSocialVideos();
       }, {
         root: socialScroller,
         rootMargin: '0px',
-        threshold: 0.01,
+        threshold: [0, 0.01, 0.35, 0.65, 0.95],
       });
 
       socialVideos.forEach((video) => videoObserver.observe(video));
@@ -129,6 +158,7 @@ if (isCouponDesk) {
   }
 
   if (socialViewport && socialScroller && socialTrack && socialCards.length) {
+    const visibleSocialCards = new Set();
     let previousFrameTime = 0;
     let autoScrollPausedUntil = 0;
     let dragStartX = 0;
@@ -137,9 +167,27 @@ if (isCouponDesk) {
     let isMouseDragging = false;
     let loopPositionReady = false;
     let autoScrollPosition = socialScroller.scrollLeft;
+    let cardGeometry = new WeakMap();
     const firstSet = socialTrack.querySelector('.social-gallery__set');
     const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const loopDurationMs = prefersReducedMotion ? 120000 : 42240;
+    const loopDurationMs = 42240;
+
+    if ('IntersectionObserver' in window) {
+      const cardObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) visibleSocialCards.add(entry.target);
+          else visibleSocialCards.delete(entry.target);
+        });
+        startSocialArc();
+      }, {
+        root: socialScroller,
+        rootMargin: '0px 35%',
+        threshold: 0,
+      });
+      socialCards.forEach((card) => cardObserver.observe(card));
+    } else {
+      socialCards.forEach((card) => visibleSocialCards.add(card));
+    }
 
     const pauseAutoScroll = (durationMs = 1800) => {
       autoScrollPausedUntil = performance.now() + durationMs;
@@ -155,9 +203,9 @@ if (isCouponDesk) {
       }
 
       let shift = 0;
-      if (socialScroller.scrollLeft < loopWidth * 0.5) {
+      if (socialScroller.scrollLeft < loopWidth * 0.15) {
         shift = loopWidth;
-      } else if (socialScroller.scrollLeft >= loopWidth * 1.5) {
+      } else if (socialScroller.scrollLeft >= loopWidth * 1.15) {
         shift = -loopWidth;
       }
 
@@ -168,6 +216,7 @@ if (isCouponDesk) {
     };
 
     const drawSocialArc = (frameTime) => {
+      socialArcFrame = 0;
       if (socialGalleryPaused) return;
 
       const elapsedMs = previousFrameTime
@@ -177,7 +226,7 @@ if (isCouponDesk) {
 
       const loopWidth = firstSet?.offsetWidth || 0;
       normalizeLoopPosition(loopWidth);
-      if (loopWidth && frameTime >= autoScrollPausedUntil) {
+      if (!prefersReducedMotion && loopWidth && frameTime >= autoScrollPausedUntil) {
         autoScrollPosition += (loopWidth / loopDurationMs) * elapsedMs;
         socialScroller.scrollLeft = autoScrollPosition;
         normalizeLoopPosition(loopWidth);
@@ -185,19 +234,25 @@ if (isCouponDesk) {
         autoScrollPosition = socialScroller.scrollLeft;
       }
 
-      const viewportRect = socialViewport.getBoundingClientRect();
-      const trackRect = socialTrack.getBoundingClientRect();
-      const viewportCenter = viewportRect.width / 2;
-      const trackOffset = trackRect.left - viewportRect.left;
+      const viewportWidth = socialScroller.clientWidth;
+      const viewportCenter = viewportWidth / 2;
 
-      socialCards.forEach((card) => {
-        const setOffset = card.parentElement.offsetLeft;
-        const cardCenter = trackOffset + setOffset + card.offsetLeft + (card.offsetWidth / 2);
-        const normalized = (cardCenter - viewportCenter) / (viewportRect.width * 0.55);
+      visibleSocialCards.forEach((card) => {
+        let geometry = cardGeometry.get(card);
+        if (!geometry) {
+          geometry = {
+            left: card.parentElement.offsetLeft + card.offsetLeft,
+            width: card.offsetWidth,
+            height: card.offsetHeight,
+          };
+          cardGeometry.set(card, geometry);
+        }
+        const cardCenter = geometry.left - socialScroller.scrollLeft + (geometry.width / 2);
+        const normalized = (cardCenter - viewportCenter) / (viewportWidth * 0.55);
         const clamped = Math.max(-1.15, Math.min(1.15, normalized));
         const distance = Math.min(1, Math.abs(clamped));
         const curve = distance ** 1.75;
-        const arcDepth = Math.min(44, card.offsetHeight * 0.16);
+        const arcDepth = Math.min(44, geometry.height * 0.16);
         const y = arcDepth * curve;
         const rotation = 7.5 * clamped;
         const scale = 1.055 - (0.11 * curve);
@@ -205,14 +260,12 @@ if (isCouponDesk) {
         card.style.setProperty('--arc-y', `${y.toFixed(2)}px`);
         card.style.setProperty('--arc-rotation', `${rotation.toFixed(2)}deg`);
         card.style.setProperty('--arc-scale', scale.toFixed(3));
-        card.style.setProperty('--arc-saturation', (1 - (0.13 * curve)).toFixed(3));
-        card.style.setProperty('--arc-brightness', (1 - (0.06 * curve)).toFixed(3));
-        card.style.setProperty('--arc-shadow-y', `${(10 + (5 * curve)).toFixed(2)}px`);
-        card.style.setProperty('--arc-shadow-blur', `${(20 + (5 * curve)).toFixed(2)}px`);
         card.style.zIndex = String(20 - Math.round(distance * 10));
       });
 
-      socialArcFrame = requestAnimationFrame(drawSocialArc);
+      if (!prefersReducedMotion) {
+        socialArcFrame = requestAnimationFrame(drawSocialArc);
+      }
     };
 
     startSocialArc = () => {
@@ -222,6 +275,9 @@ if (isCouponDesk) {
       socialArcFrame = requestAnimationFrame(drawSocialArc);
     };
 
+    socialScroller.addEventListener('scroll', () => {
+      if (prefersReducedMotion) startSocialArc();
+    }, { passive: true });
     socialScroller.addEventListener('touchstart', () => pauseAutoScroll(), { passive: true });
     socialScroller.addEventListener('wheel', () => pauseAutoScroll(), { passive: true });
     socialScroller.addEventListener('keydown', (event) => {
@@ -272,7 +328,293 @@ if (isCouponDesk) {
       draggedDistance = 0;
     }, true);
 
-    startSocialArc();
+    window.addEventListener('resize', () => {
+      cardGeometry = new WeakMap();
+      loopPositionReady = false;
+      startSocialArc();
+    }, { passive: true });
+  }
+
+  if (socialGallery && 'IntersectionObserver' in window) {
+    const socialSectionObserver = new IntersectionObserver(([entry]) => {
+      socialGalleryInView = Boolean(entry?.isIntersecting);
+      syncSocialGalleryState();
+    }, { rootMargin: '15% 0px', threshold: 0 });
+    socialSectionObserver.observe(socialGallery);
+  } else {
+    socialGalleryInView = true;
+    syncSocialGalleryState();
+  }
+
+  if (storyThread && homePage) {
+    const STORY_COVER_TRIGGER_VIEWPORT_RATIO = 0.18;
+    let storyCoverFrame = 0;
+
+    const syncStoryCoverState = () => {
+      storyCoverFrame = 0;
+      const storyTop = storyThread.getBoundingClientRect().top;
+      const coverTrigger = window.innerHeight * STORY_COVER_TRIGGER_VIEWPORT_RATIO;
+      homePage.classList.toggle('is-covered', storyTop <= coverTrigger);
+    };
+
+    const requestStoryCoverSync = () => {
+      if (!storyCoverFrame) storyCoverFrame = requestAnimationFrame(syncStoryCoverState);
+    };
+
+    window.addEventListener('scroll', requestStoryCoverSync, { passive: true });
+    window.addEventListener('resize', requestStoryCoverSync, { passive: true });
+    syncStoryCoverState();
+  }
+
+  const prefersReducedStoryMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (storyThread && homePage) {
+    const mobileStoryEntryQuery = matchMedia('(max-width: 600px)');
+    const STORY_ENTRY_SWIPE_THRESHOLD_PX = 96;
+    const STORY_ENTRY_DIRECTION_LOCK_PX = 10;
+    const STORY_ENTRY_HOLD_MS = 50;
+    let storyEntryTracking = false;
+    let storyEntryDirection = null;
+    let storyEntryStartX = 0;
+    let storyEntryStartY = 0;
+    let storyEntryAnimationFrame = 0;
+    let storyEntryHoldUntil = 0;
+    let storyEntryHoldTimer = 0;
+    let storyEntryArmFrame = 0;
+    let storyEntryLockedY = null;
+    let storyEntryActiveTouches = 0;
+    let storyEntryPhase = mobileStoryEntryQuery.matches && window.scrollY <= 8
+      ? 'armed'
+      : 'released';
+
+    const syncStoryEntryArmed = () => {
+      storyEntryArmFrame = 0;
+      if (!mobileStoryEntryQuery.matches) {
+        storyEntryPhase = 'released';
+      } else if (storyEntryPhase === 'released' && window.scrollY <= 2) {
+        storyEntryPhase = 'armed';
+      }
+      document.documentElement.classList.toggle('story-entry-armed', storyEntryPhase === 'armed');
+    };
+
+    const requestStoryEntryArmSync = () => {
+      if (!storyEntryArmFrame) storyEntryArmFrame = requestAnimationFrame(syncStoryEntryArmed);
+    };
+
+    const releaseStoryEntryHold = () => {
+      if (storyEntryHoldTimer) clearTimeout(storyEntryHoldTimer);
+      const restoreY = storyEntryLockedY;
+      storyEntryLockedY = null;
+      storyEntryHoldUntil = 0;
+      storyEntryHoldTimer = 0;
+      storyEntryPhase = 'released';
+      document.documentElement.classList.remove('story-entry-holding');
+      if (restoreY !== null) window.scrollTo(0, restoreY);
+      requestStoryEntryArmSync();
+    };
+
+    const releaseStoryEntryWhenReady = () => {
+      const remainingMs = storyEntryHoldUntil - performance.now();
+      if (remainingMs > 0 || storyEntryActiveTouches > 0) {
+        storyEntryHoldTimer = window.setTimeout(
+          releaseStoryEntryWhenReady,
+          Math.max(32, remainingMs),
+        );
+        return;
+      }
+      releaseStoryEntryHold();
+    };
+
+    const startStoryEntryHold = (targetY) => {
+      clearTimeout(storyEntryHoldTimer);
+      storyEntryPhase = 'holding';
+      storyEntryLockedY = targetY;
+      storyEntryHoldUntil = performance.now() + STORY_ENTRY_HOLD_MS;
+      window.scrollTo(0, targetY);
+      document.documentElement.classList.add('story-entry-holding');
+      storyEntryHoldTimer = window.setTimeout(releaseStoryEntryWhenReady, STORY_ENTRY_HOLD_MS);
+    };
+
+    const isStoryEntryHolding = () => {
+      if (storyEntryPhase !== 'holding') return false;
+      if (performance.now() >= storyEntryHoldUntil && storyEntryActiveTouches === 0) {
+        releaseStoryEntryHold();
+        return false;
+      }
+      return true;
+    };
+
+    const finishStoryEntryAnimation = (targetY) => {
+      storyEntryAnimationFrame = 0;
+      document.documentElement.classList.remove('story-entry-running');
+      startStoryEntryHold(targetY);
+    };
+
+    const animateToStoryPreview = () => {
+      if (storyEntryPhase !== 'armed') return;
+      storyEntryPhase = 'animating';
+      cancelAnimationFrame(storyEntryAnimationFrame);
+      document.documentElement.classList.remove('story-entry-armed');
+      const startY = window.scrollY;
+      const entryViewportBottom = window.visualViewport
+        ? window.visualViewport.height + window.visualViewport.offsetTop
+        : window.innerHeight;
+      const dividerPageY = window.scrollY + storyFirstChapter.getBoundingClientRect().top;
+      const targetY = Math.max(0, dividerPageY - entryViewportBottom);
+
+      if (prefersReducedStoryMotion || targetY <= startY) {
+        window.scrollTo(0, targetY);
+        finishStoryEntryAnimation(targetY);
+        return;
+      }
+
+      const startedAt = performance.now();
+      const durationMs = 780;
+      document.documentElement.classList.add('story-entry-running');
+
+      const drawStoryEntry = (frameTime) => {
+        const progress = Math.min(1, (frameTime - startedAt) / durationMs);
+        const easedProgress = 1 - ((1 - progress) ** 4);
+        window.scrollTo(0, startY + ((targetY - startY) * easedProgress));
+
+        if (progress < 1) {
+          storyEntryAnimationFrame = requestAnimationFrame(drawStoryEntry);
+        } else {
+          window.scrollTo(0, targetY);
+          finishStoryEntryAnimation(targetY);
+        }
+      };
+
+      storyEntryAnimationFrame = requestAnimationFrame(drawStoryEntry);
+    };
+
+    document.addEventListener('touchstart', (event) => {
+      storyEntryActiveTouches = event.touches.length;
+      const touch = event.touches[0];
+      storyEntryTracking = Boolean(
+        touch
+        && event.touches.length === 1
+        && mobileStoryEntryQuery.matches
+        && storyEntryPhase === 'armed',
+      );
+      storyEntryDirection = null;
+      if (!storyEntryTracking) return;
+      storyEntryStartX = touch.clientX;
+      storyEntryStartY = touch.clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (event) => {
+      if (storyEntryAnimationFrame || isStoryEntryHolding()) {
+        if (event.cancelable) event.preventDefault();
+        return;
+      }
+      if (!storyEntryTracking || event.touches.length !== 1) return;
+
+      const touch = event.touches[0];
+      const deltaX = storyEntryStartX - touch.clientX;
+      const deltaY = storyEntryStartY - touch.clientY;
+      const absoluteX = Math.abs(deltaX);
+      const absoluteY = Math.abs(deltaY);
+
+      if (!storyEntryDirection && Math.max(absoluteX, absoluteY) >= STORY_ENTRY_DIRECTION_LOCK_PX) {
+        storyEntryDirection = absoluteX > absoluteY ? 'horizontal' : 'vertical';
+      }
+
+      if (storyEntryDirection === 'horizontal') {
+        storyEntryTracking = false;
+        return;
+      }
+      if (storyEntryDirection !== 'vertical') return;
+
+      if (event.cancelable) event.preventDefault();
+      if (deltaY < 0 || deltaY < STORY_ENTRY_SWIPE_THRESHOLD_PX) return;
+
+      storyEntryTracking = false;
+      animateToStoryPreview();
+    }, { passive: false });
+
+    const stopStoryEntryTracking = (event) => {
+      storyEntryActiveTouches = event.touches.length;
+      storyEntryTracking = false;
+      storyEntryDirection = null;
+      if (
+        storyEntryPhase === 'holding'
+        && performance.now() >= storyEntryHoldUntil
+        && storyEntryActiveTouches === 0
+      ) {
+        releaseStoryEntryHold();
+      }
+    };
+
+    document.addEventListener('touchend', stopStoryEntryTracking, { passive: true });
+    document.addEventListener('touchcancel', stopStoryEntryTracking, { passive: true });
+    document.addEventListener('wheel', (event) => {
+      if (isStoryEntryHolding() && event.cancelable) event.preventDefault();
+    }, { passive: false });
+    window.addEventListener('scroll', () => {
+      if (storyEntryPhase === 'armed' && window.scrollY > 4) {
+        animateToStoryPreview();
+        return;
+      }
+      requestStoryEntryArmSync();
+    }, { passive: true });
+    window.addEventListener('resize', requestStoryEntryArmSync, { passive: true });
+    mobileStoryEntryQuery.addEventListener?.('change', requestStoryEntryArmSync);
+    syncStoryEntryArmed();
+  }
+
+  if (storyThread && !prefersReducedStoryMotion && 'IntersectionObserver' in window) {
+    storyThread.classList.add('thread--motion-ready');
+
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        revealObserver.unobserve(entry.target);
+      });
+    }, {
+      rootMargin: '0px 0px -10% 0px',
+      threshold: 0.08,
+    });
+
+    storyRevealElements.forEach((element) => revealObserver.observe(element));
+
+    if (matchMedia('(min-width: 601px)').matches) {
+      const visibleStoryFrames = new Set();
+      let storyMotionFrame = 0;
+
+      const drawStoryParallax = () => {
+        storyMotionFrame = 0;
+        const viewportCenter = window.innerHeight / 2;
+
+        visibleStoryFrames.forEach((frame) => {
+          const rect = frame.getBoundingClientRect();
+          const frameCenter = rect.top + (rect.height / 2);
+          const normalized = Math.max(-1, Math.min(1, (frameCenter - viewportCenter) / window.innerHeight));
+          frame.style.setProperty('--thread-shift', `${(-normalized * 12).toFixed(2)}px`);
+        });
+      };
+
+      const requestStoryParallax = () => {
+        if (!storyMotionFrame) storyMotionFrame = requestAnimationFrame(drawStoryParallax);
+      };
+
+      const frameObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          entry.target.classList.toggle('is-parallax-active', entry.isIntersecting);
+          if (entry.isIntersecting) {
+            visibleStoryFrames.add(entry.target);
+          } else {
+            visibleStoryFrames.delete(entry.target);
+          }
+        });
+        requestStoryParallax();
+      }, { rootMargin: '20% 0px' });
+
+      storyFrames.forEach((frame) => frameObserver.observe(frame));
+      window.addEventListener('scroll', requestStoryParallax, { passive: true });
+      window.addEventListener('resize', requestStoryParallax, { passive: true });
+    }
   }
 
   backToTopButton?.addEventListener('click', () => {
@@ -281,14 +623,14 @@ if (isCouponDesk) {
   });
 
   document.addEventListener('visibilitychange', () => {
-    const overlayOpen = !menuOverlay.hidden || !gameOverlay.hidden || !legalOverlay.hidden;
-    setSocialGalleryPaused(document.hidden || overlayOpen);
+    syncSocialGalleryState();
   });
 
   function openOverlay(overlay) {
     overlay.hidden = false;
     document.body.style.overflow = 'hidden';
-    setSocialGalleryPaused(true);
+    overlayBlockingSocialGallery = true;
+    syncSocialGalleryState();
   }
 
   function closeOverlay(overlay) {
@@ -296,6 +638,7 @@ if (isCouponDesk) {
     const allOverlaysClosed = menuOverlay.hidden && gameOverlay.hidden && legalOverlay.hidden;
     if (allOverlaysClosed) {
       document.body.style.overflow = '';
+      overlayBlockingSocialGallery = false;
     }
     if (overlay === gameOverlay) {
       gameLobbyController?.abort();
@@ -304,7 +647,7 @@ if (isCouponDesk) {
       activeGame = null;
       gameRoot.innerHTML = '';
     }
-    if (allOverlaysClosed) setSocialGalleryPaused(document.hidden);
+    if (allOverlaysClosed) syncSocialGalleryState();
   }
 
   async function mountSelectedGame(game) {

@@ -64,14 +64,16 @@ function createConsentPanel() {
   panel.innerHTML = `
     <button class="privacy-consent__close" type="button" data-clarity-action="close" aria-label="Close privacy choices">×</button>
     <span class="privacy-consent__eyebrow">OPTIONAL ANALYTICS</span>
-    <strong id="privacy-consent-title">HELP US MAKE THIS BETTER</strong>
-    <p>With your permission, Microsoft Clarity helps us understand clicks, scrolling, and session replays so we can improve the site.</p>
-    <p class="privacy-consent__age">Sensitive fields and coupon codes are masked. By allowing analytics, you confirm that you’re 18 or older.</p>
+    <strong id="privacy-consent-title">HELP US IMPROVE</strong>
+    <p>Allow Microsoft Clarity to show us clicks, scrolling, and session replays so we can make the site better.</p>
     <div class="privacy-consent__actions">
-      <button type="button" data-clarity-action="deny">ONLY NECESSARY</button>
+      <button type="button" data-clarity-action="deny">NECESSARY ONLY</button>
       <button type="button" data-clarity-action="allow">ALLOW ANALYTICS</button>
     </div>
-    <button class="privacy-consent__policy" type="button" data-action="open-legal" data-legal="privacy">READ PRIVACY POLICY</button>`;
+    <div class="privacy-consent__meta">
+      <span>18+ · SENSITIVE FIELDS MASKED</span>
+      <button class="privacy-consent__policy" type="button" data-action="open-legal" data-legal="privacy">PRIVACY POLICY</button>
+    </div>`;
   document.body.append(panel);
   return panel;
 }
