@@ -564,8 +564,12 @@ if (isCouponDesk) {
     }
   }
 
-  const requestedMenuTab = new URLSearchParams(location.search).get('menu');
-  if (requestedMenuTab === 'kitchen' || requestedMenuTab === 'drink') {
+  const launchParams = new URLSearchParams(location.search);
+  const requestedGame = launchParams.get('game');
+  const requestedMenuTab = launchParams.get('menu');
+  if (requestedGame === 'arcade') {
+    openGame();
+  } else if (requestedMenuTab === 'kitchen' || requestedMenuTab === 'drink') {
     renderMenu(menuContent, requestedMenuTab);
     openOverlay(menuOverlay);
   }
