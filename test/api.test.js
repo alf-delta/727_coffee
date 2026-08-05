@@ -623,6 +623,11 @@ test('api: coupon can be redeemed exactly once and reports terminal status', asy
   );
   assert.equal(replay.statusCode, 409);
   assert.equal(replay.jsonBody.error, 'coupon_already_redeemed');
+  assert.equal(replay.jsonBody.redeemedAt, firstRedemption.jsonBody.redeemedAt);
+  assert.equal(replay.jsonBody.discountPercent, finish.jsonBody.discountPercent);
+  assert.equal(replay.jsonBody.email, couponEmail);
+  assert.equal(replay.jsonBody.expiresAt, firstRedemption.jsonBody.expiresAt);
+  assert.equal(replay.jsonBody.timeZone, 'America/New_York');
 
   const status = mockRes();
   await couponStatusHandler(

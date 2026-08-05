@@ -29,6 +29,7 @@ function formatCouponTime(epochMs, timeZone) {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZoneName: 'short',
   }).format(new Date(epochMs));
 }
 
@@ -194,6 +195,48 @@ export function mountCouponDesk(body) {
       scanButton.classList.toggle('is-active', active);
     };
 
+    const showResultPopup = ({
+      type,
+      eyebrow,
+      title,
+      discountPercent,
+      message,
+      details,
+    }) => {
+      stopScanner();
+      const safeDetails = details
+        .filter((detail) => detail.value !== null && detail.value !== undefined && detail.value !== '')
+        .map((detail) => `
+          <div>
+            <dt>${escapeHtml(detail.label)}</dt>
+            <dd>${escapeHtml(detail.value)}</dd>
+          </div>`)
+        .join('');
+
+      resultEl.className = `coupon-desk__result is-open is-${type}`;
+      resultEl.innerHTML = `
+        <section class="coupon-desk__result-card" role="alertdialog" aria-modal="true" aria-labelledby="coupon-result-title">
+          <span class="coupon-desk__result-mark" aria-hidden="true">${type === 'success' ? '✓' : '!'}</span>
+          <span class="coupon-desk__result-eyebrow">${escapeHtml(eyebrow)}</span>
+          <strong id="coupon-result-title" class="coupon-desk__result-title">${escapeHtml(title)}</strong>
+          ${Number(discountPercent) > 0
+            ? `<span class="coupon-desk__result-discount">${Number(discountPercent)}% OFF</span>`
+            : ''}
+          <p>${escapeHtml(message)}</p>
+          <dl class="coupon-desk__details">${safeDetails}</dl>
+          <button type="button" class="coupon-desk__result-close" data-action="dismiss-coupon-result">CHECK NEXT COUPON</button>
+        </section>`;
+
+      const closeButton = resultEl.querySelector('[data-action="dismiss-coupon-result"]');
+      closeButton.addEventListener('click', () => {
+        resultEl.className = 'coupon-desk__result';
+        resultEl.replaceChildren();
+        setScanButtonState('SCAN COUPON QR', 'OPEN CAMERA');
+        if (matchMedia('(pointer: fine)').matches) codeInput.focus({ preventScroll: true });
+      });
+      requestAnimationFrame(() => closeButton.focus({ preventScroll: true }));
+    };
+
     codeInput.addEventListener('input', () => {
       const raw = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
       codeInput.value = raw.length > 4 ? `${raw.slice(0, 4)} ${raw.slice(4)}` : raw;
@@ -275,6 +318,10 @@ export function mountCouponDesk(body) {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const button = form.querySelector('button[type="submit"]');
+      const rawCode = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+      const submittedCode = rawCode.length === 8
+        ? `${rawCode.slice(0, 4)} ${rawCode.slice(4)}`
+        : codeInput.value;
       button.disabled = true;
       button.textContent = 'Checking…';
       resultEl.className = 'coupon-desk__result';
@@ -286,28 +333,45 @@ export function mountCouponDesk(body) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: codeInput.value }),
         }));
-        resultEl.classList.add('is-success');
-        resultEl.innerHTML = `
-          <strong>${Number(result.discountPercent) || 0}% OFF · ACCEPTED</strong>
-          <span>Coupon redeemed. Apply the discount to this order.</span>
-          <dl class="coupon-desk__details">
-            <div>
-              <dt>EMAIL</dt>
-              <dd>${escapeHtml(result.email || result.maskedEmail || 'Not recorded')}</dd>
-            </div>
-            <div>
-              <dt>VALID UNTIL</dt>
-              <dd>${escapeHtml(formatCouponTime(result.expiresAt, result.timeZone))}</dd>
-            </div>
-            <div>
-              <dt>TIME REMAINING</dt>
-              <dd>${escapeHtml(formatRemaining(result.remainingSeconds))}</dd>
-            </div>
-          </dl>`;
         form.reset();
+        showResultPopup({
+          type: 'success',
+          eyebrow: 'COUPON VERIFIED',
+          title: 'ACCEPTED',
+          discountPercent: result.discountPercent,
+          message: 'Apply this discount to the current order. The coupon is now marked as used.',
+          details: [
+            { label: 'COUPON', value: submittedCode },
+            { label: 'EMAIL', value: result.email || result.maskedEmail || 'Not recorded' },
+            { label: 'REDEEMED AT', value: formatCouponTime(result.redeemedAt, result.timeZone) },
+            { label: 'VALID UNTIL', value: formatCouponTime(result.expiresAt, result.timeZone) },
+            { label: 'TIME REMAINING', value: formatRemaining(result.remainingSeconds) },
+          ],
+        });
       } catch (error) {
         if (error.status === 401) {
           renderLogin('Your staff session expired. Sign in again.');
+          return;
+        }
+        if (error.code === 'coupon_already_redeemed') {
+          form.reset();
+          showResultPopup({
+            type: 'used',
+            eyebrow: 'DO NOT APPLY DISCOUNT',
+            title: 'ALREADY USED',
+            discountPercent: error.details?.discountPercent,
+            message: error.details?.redeemedAt
+              ? 'This coupon was redeemed earlier. Do not apply the discount again.'
+              : 'This coupon has already been redeemed. Do not apply the discount again.',
+            details: [
+              { label: 'COUPON', value: submittedCode },
+              { label: 'EMAIL', value: error.details?.email || error.details?.maskedEmail || 'Not recorded' },
+              { label: 'USED AT', value: error.details?.redeemedAt
+                ? formatCouponTime(error.details.redeemedAt, error.details?.timeZone)
+                : 'Time unavailable' },
+              { label: 'ORIGINAL EXPIRY', value: formatCouponTime(error.details?.expiresAt, error.details?.timeZone) },
+            ],
+          });
           return;
         }
         resultEl.classList.add('is-error');
@@ -319,7 +383,7 @@ export function mountCouponDesk(body) {
         button.disabled = false;
         button.textContent = 'Verify & redeem →';
         setScanButtonState('SCAN COUPON QR', 'OPEN CAMERA');
-        if (matchMedia('(pointer: fine)').matches) {
+        if (!resultEl.classList.contains('is-open') && matchMedia('(pointer: fine)').matches) {
           codeInput.focus();
           codeInput.select();
         }

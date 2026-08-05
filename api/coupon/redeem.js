@@ -64,6 +64,14 @@ export default async function handler(req, res) {
     return res.status(409).json({
       error: 'coupon_already_redeemed',
       message: 'This coupon has already been redeemed.',
+      discountPercent: coupon.discountPercent,
+      email,
+      maskedEmail: coupon.contactChannel === 'email'
+        ? coupon.contactMasked
+        : null,
+      issuedAt: coupon.issuedAt,
+      expiresAt: coupon.expiresAt,
+      timeZone: BUSINESS_TIME_ZONE,
       redeemedAt: existing?.redeemedAt ?? null,
     });
   }
