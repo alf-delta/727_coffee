@@ -6,6 +6,7 @@ import { mountContactVerification } from './verification.js';
 import { initClarityConsent } from './clarity.js';
 import { mountCouponQr } from './couponQr.js';
 import { LEGAL_VERSION } from '../shared/legal.js';
+import { easeStoryEntry } from '../shared/storyMotion.js';
 
 createIcons({ icons: { MapPin } });
 
@@ -60,6 +61,9 @@ if (isCouponDesk) {
   const socialVideoReleaseTimers = new Map();
   let socialGalleryPaused = true;
   let socialGalleryInView = false;
+  let socialGalleryCoveredByStory = false;
+  let socialGallerySyncDeferred = false;
+  let storyEntryAnimationActive = false;
   let overlayBlockingSocialGallery = false;
   let socialArcFrame = 0;
   let startSocialArc = () => {};
@@ -136,9 +140,21 @@ if (isCouponDesk) {
   };
 
   const syncSocialGalleryState = () => {
-    setSocialGalleryPaused(
-      document.hidden || overlayBlockingSocialGallery || !socialGalleryInView,
-    );
+    const immediatePause = document.hidden || overlayBlockingSocialGallery || !socialGalleryInView;
+    if (storyEntryAnimationActive && socialGalleryCoveredByStory && !immediatePause) {
+      socialGallerySyncDeferred = true;
+      return;
+    }
+
+    socialGallerySyncDeferred = false;
+    setSocialGalleryPaused(immediatePause || socialGalleryCoveredByStory);
+  };
+
+  const setStoryEntryAnimationActive = (active) => {
+    storyEntryAnimationActive = active;
+    if (active || !socialGallerySyncDeferred) return;
+    socialGallerySyncDeferred = false;
+    requestAnimationFrame(syncSocialGalleryState);
   };
 
   if (socialScroller && socialVideos.length) {
@@ -355,13 +371,36 @@ if (isCouponDesk) {
 
   if (storyThread && homePage) {
     const STORY_COVER_TRIGGER_VIEWPORT_RATIO = 0.18;
+    const STORY_REVEAL_TRIGGER_VIEWPORT_RATIO = 0.30;
+    const GALLERY_REVEAL_HYSTERESIS_PX = 24;
     let storyCoverFrame = 0;
+    let storyCoversHome = false;
 
     const syncStoryCoverState = () => {
       storyCoverFrame = 0;
       const storyTop = storyThread.getBoundingClientRect().top;
-      const coverTrigger = window.innerHeight * STORY_COVER_TRIGGER_VIEWPORT_RATIO;
-      homePage.classList.toggle('is-covered', storyTop <= coverTrigger);
+      const pageHeight = homePage.clientHeight;
+      const galleryTop = socialGallery?.getBoundingClientRect().top ?? null;
+      const coverTrigger = pageHeight * STORY_COVER_TRIGGER_VIEWPORT_RATIO;
+      const revealTrigger = pageHeight * STORY_REVEAL_TRIGGER_VIEWPORT_RATIO;
+      const nextStoryCoversHome = storyCoversHome
+        ? storyTop <= revealTrigger
+        : storyTop <= coverTrigger;
+
+      if (nextStoryCoversHome !== storyCoversHome) {
+        storyCoversHome = nextStoryCoversHome;
+        homePage.classList.toggle('is-covered', storyCoversHome);
+      }
+
+      if (galleryTop !== null) {
+        const nextGalleryCovered = socialGalleryCoveredByStory
+          ? storyTop <= galleryTop + GALLERY_REVEAL_HYSTERESIS_PX
+          : storyTop <= galleryTop;
+        if (nextGalleryCovered !== socialGalleryCoveredByStory) {
+          socialGalleryCoveredByStory = nextGalleryCovered;
+          syncSocialGalleryState();
+        }
+      }
     };
 
     const requestStoryCoverSync = () => {
@@ -456,6 +495,7 @@ if (isCouponDesk) {
       storyEntryAnimationFrame = 0;
       document.documentElement.classList.remove('story-entry-running');
       startStoryEntryHold(targetY);
+      setStoryEntryAnimationActive(false);
     };
 
     const animateToStoryPreview = () => {
@@ -478,11 +518,12 @@ if (isCouponDesk) {
 
       const startedAt = performance.now();
       const durationMs = 780;
+      setStoryEntryAnimationActive(true);
       document.documentElement.classList.add('story-entry-running');
 
       const drawStoryEntry = (frameTime) => {
         const progress = Math.min(1, (frameTime - startedAt) / durationMs);
-        const easedProgress = 1 - ((1 - progress) ** 4);
+        const easedProgress = easeStoryEntry(progress);
         window.scrollTo(0, startY + ((targetY - startY) * easedProgress));
 
         if (progress < 1) {
@@ -511,6 +552,7 @@ if (isCouponDesk) {
       storyEntryPhase = 'released';
       cancelAnimationFrame(storyEntryAnimationFrame);
       storyEntryAnimationFrame = 0;
+      setStoryEntryAnimationActive(false);
       cancelAnimationFrame(storyEntryArmFrame);
       storyEntryArmFrame = 0;
       clearTimeout(storyEntryHoldTimer);

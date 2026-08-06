@@ -30,6 +30,9 @@ test('ui performance: optimized videos stay within the mobile transfer budget', 
 test('ui performance: offscreen work and decoder count remain bounded', () => {
   assert.match(mainScript, /slice\(0, 3\)/);
   assert.match(mainScript, /socialSectionObserver/);
+  assert.match(mainScript, /socialGalleryCoveredByStory/);
+  assert.match(mainScript, /document\.hidden \|\| overlayBlockingSocialGallery \|\| !socialGalleryInView/);
+  assert.match(mainScript, /setSocialGalleryPaused\(immediatePause \|\| socialGalleryCoveredByStory\)/);
   assert.match(mainScript, /classList\.toggle\('is-covered'/);
   assert.doesNotMatch(mainScript, /cloneNode\(true\)/);
 });
@@ -79,9 +82,22 @@ test('ui interaction: scrolling an overlay cannot trigger or move the story curt
   assert.match(mainCss, /\.overlay__panel\s*\{[\s\S]*?touch-action:\s*pan-y/);
 });
 
-test('ui interaction: home effects pause only after the story covers most of the viewport', () => {
+test('ui interaction: home effects use stable hysteresis and pause hidden gallery work', () => {
   assert.match(mainScript, /STORY_COVER_TRIGGER_VIEWPORT_RATIO = 0\.18/);
-  assert.match(mainScript, /const coverTrigger = window\.innerHeight \* STORY_COVER_TRIGGER_VIEWPORT_RATIO/);
-  assert.match(mainScript, /classList\.toggle\('is-covered', storyTop <= coverTrigger\)/);
+  assert.match(mainScript, /STORY_REVEAL_TRIGGER_VIEWPORT_RATIO = 0\.30/);
+  assert.match(mainScript, /const pageHeight = homePage\.clientHeight/);
+  assert.match(mainScript, /const galleryTop = socialGallery\?\.getBoundingClientRect\(\)\.top \?\? null/);
+  assert.match(mainScript, /storyCoversHome\s*\? storyTop <= revealTrigger\s*:\s*storyTop <= coverTrigger/);
+  assert.match(mainScript, /classList\.toggle\('is-covered', storyCoversHome\)/);
+  assert.match(mainScript, /storyTop <= galleryTop \+ GALLERY_REVEAL_HYSTERESIS_PX/);
+  assert.match(mainScript, /storyTop <= galleryTop/);
+  assert.doesNotMatch(mainScript, /const coverTrigger = window\.innerHeight/);
   assert.doesNotMatch(mainScript, /storyCoverObserver/);
+});
+
+test('ui interaction: first story reveal starts smoothly and defers decoder teardown', () => {
+  assert.match(mainScript, /easeStoryEntry\(progress\)/);
+  assert.doesNotMatch(mainScript, /1 - \(\(1 - progress\) \*\* 4\)/);
+  assert.match(mainScript, /storyEntryAnimationActive && socialGalleryCoveredByStory/);
+  assert.match(mainScript, /requestAnimationFrame\(syncSocialGalleryState\)/);
 });
