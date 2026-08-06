@@ -53,7 +53,6 @@ test('ui interaction: the first mobile swipe lands at the story instead of overs
   assert.match(mainScript, /window\.scrollTo\(0, targetY\)/);
   assert.match(mainScript, /storyEntryHoldUntil = performance\.now\(\) \+ STORY_ENTRY_HOLD_MS/);
   assert.doesNotMatch(mainScript, /enforceStoryEntryLock/);
-  assert.doesNotMatch(mainScript, /document\.body\.style\.position = 'fixed'/);
   assert.match(mainScript, /if \(restoreY !== null\) window\.scrollTo\(0, restoreY\)/);
   assert.match(mainScript, /storyEntryAnimationFrame \|\| isStoryEntryHolding\(\)/);
   assert.match(mainScript, /classList\.toggle\('story-entry-armed', storyEntryPhase === 'armed'\)/);
@@ -62,6 +61,22 @@ test('ui interaction: the first mobile swipe lands at the story instead of overs
   assert.match(mainCss, /html\.story-entry-armed \.page\s*\{\s*touch-action:\s*pan-x/);
   assert.match(mainCss, /html\.story-entry-holding body[\s\S]*?touch-action:\s*none/);
   assert.doesNotMatch(html, /thread__entry-cue/);
+});
+
+test('ui interaction: scrolling an overlay cannot trigger or move the story curtain', () => {
+  assert.match(mainScript, /homePage\.addEventListener\('touchstart'/);
+  assert.match(mainScript, /homePage\.addEventListener\('touchmove'/);
+  assert.doesNotMatch(mainScript, /document\.addEventListener\('touchstart'/);
+  assert.doesNotMatch(mainScript, /document\.addEventListener\('touchmove'/);
+  assert.match(mainScript, /setStoryEntrySuspended\(true\)/);
+  assert.match(mainScript, /cancelAnimationFrame\(storyEntryAnimationFrame\)/);
+  assert.match(mainScript, /lockedPageScrollY = window\.scrollY/);
+  assert.match(mainScript, /bodyStyle\.position = 'fixed'/);
+  assert.match(mainScript, /window\.scrollTo\(0, restoreY\)/);
+  assert.match(mainScript, /homeStory\.inert = true/);
+  assert.match(mainScript, /homeStory\.inert = false/);
+  assert.match(mainCss, /\.overlay__panel\s*\{[\s\S]*?overscroll-behavior:\s*contain/);
+  assert.match(mainCss, /\.overlay__panel\s*\{[\s\S]*?touch-action:\s*pan-y/);
 });
 
 test('ui interaction: home effects pause only after the story covers most of the viewport', () => {

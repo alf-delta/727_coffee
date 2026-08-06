@@ -41,6 +41,7 @@ if (isCouponDesk) {
   const menuContent = document.getElementById('menu-content');
   const gameRoot = document.getElementById('game-root');
   const legalContent = document.getElementById('legal-content');
+  const homeStory = document.querySelector('.home-story');
   const homePage = document.querySelector('.page');
   const socialGallery = document.querySelector('.social-gallery');
   const socialViewport = document.querySelector('.social-gallery__viewport');
@@ -65,6 +66,11 @@ if (isCouponDesk) {
 
   let activeGame = null;
   let gameLobbyController = null;
+  let lockedPageScrollY = null;
+  let scrollLockStyles = null;
+  let overlayUnlockFrame = 0;
+  let overlayScrollRestoring = false;
+  let setStoryEntrySuspended = () => {};
 
   const loadAndPlaySocialVideo = (video) => {
     const releaseTimer = socialVideoReleaseTimers.get(video);
@@ -384,13 +390,14 @@ if (isCouponDesk) {
     let storyEntryArmFrame = 0;
     let storyEntryLockedY = null;
     let storyEntryActiveTouches = 0;
+    let storyEntrySuspended = false;
     let storyEntryPhase = mobileStoryEntryQuery.matches && window.scrollY <= 8
       ? 'armed'
       : 'released';
 
     const syncStoryEntryArmed = () => {
       storyEntryArmFrame = 0;
-      if (!mobileStoryEntryQuery.matches) {
+      if (storyEntrySuspended || !mobileStoryEntryQuery.matches) {
         storyEntryPhase = 'released';
       } else if (storyEntryPhase === 'released' && window.scrollY <= 2) {
         storyEntryPhase = 'armed';
@@ -489,13 +496,40 @@ if (isCouponDesk) {
       storyEntryAnimationFrame = requestAnimationFrame(drawStoryEntry);
     };
 
-    document.addEventListener('touchstart', (event) => {
+    setStoryEntrySuspended = (suspended) => {
+      storyEntrySuspended = suspended;
+      if (!suspended) {
+        requestStoryEntryArmSync();
+        return;
+      }
+
+      storyEntryTracking = false;
+      storyEntryDirection = null;
+      storyEntryActiveTouches = 0;
+      storyEntryLockedY = null;
+      storyEntryHoldUntil = 0;
+      storyEntryPhase = 'released';
+      cancelAnimationFrame(storyEntryAnimationFrame);
+      storyEntryAnimationFrame = 0;
+      cancelAnimationFrame(storyEntryArmFrame);
+      storyEntryArmFrame = 0;
+      clearTimeout(storyEntryHoldTimer);
+      storyEntryHoldTimer = 0;
+      document.documentElement.classList.remove(
+        'story-entry-armed',
+        'story-entry-running',
+        'story-entry-holding',
+      );
+    };
+
+    homePage.addEventListener('touchstart', (event) => {
       storyEntryActiveTouches = event.touches.length;
       const touch = event.touches[0];
       storyEntryTracking = Boolean(
         touch
         && event.touches.length === 1
         && mobileStoryEntryQuery.matches
+        && !storyEntrySuspended
         && storyEntryPhase === 'armed',
       );
       storyEntryDirection = null;
@@ -504,7 +538,7 @@ if (isCouponDesk) {
       storyEntryStartY = touch.clientY;
     }, { passive: true });
 
-    document.addEventListener('touchmove', (event) => {
+    homePage.addEventListener('touchmove', (event) => {
       if (storyEntryAnimationFrame || isStoryEntryHolding()) {
         if (event.cancelable) event.preventDefault();
         return;
@@ -547,12 +581,13 @@ if (isCouponDesk) {
       }
     };
 
-    document.addEventListener('touchend', stopStoryEntryTracking, { passive: true });
-    document.addEventListener('touchcancel', stopStoryEntryTracking, { passive: true });
-    document.addEventListener('wheel', (event) => {
+    homePage.addEventListener('touchend', stopStoryEntryTracking, { passive: true });
+    homePage.addEventListener('touchcancel', stopStoryEntryTracking, { passive: true });
+    homePage.addEventListener('wheel', (event) => {
       if (isStoryEntryHolding() && event.cancelable) event.preventDefault();
     }, { passive: false });
     window.addEventListener('scroll', () => {
+      if (storyEntrySuspended || overlayScrollRestoring) return;
       if (storyEntryPhase === 'armed' && window.scrollY > 4) {
         animateToStoryPreview();
         return;
@@ -627,9 +662,72 @@ if (isCouponDesk) {
     syncSocialGalleryState();
   });
 
+  function lockPageScroll() {
+    if (lockedPageScrollY !== null) return;
+    cancelAnimationFrame(overlayUnlockFrame);
+    overlayUnlockFrame = 0;
+    overlayScrollRestoring = false;
+
+    const bodyStyle = document.body.style;
+    const rootStyle = document.documentElement.style;
+    const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    const bodyPaddingRight = Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0;
+    lockedPageScrollY = window.scrollY;
+    scrollLockStyles = {
+      bodyPosition: bodyStyle.position,
+      bodyTop: bodyStyle.top,
+      bodyWidth: bodyStyle.width,
+      bodyOverflow: bodyStyle.overflow,
+      bodyPaddingRight: bodyStyle.paddingRight,
+      rootOverflow: rootStyle.overflow,
+    };
+
+    rootStyle.overflow = 'hidden';
+    bodyStyle.position = 'fixed';
+    bodyStyle.top = `-${lockedPageScrollY}px`;
+    bodyStyle.width = '100%';
+    bodyStyle.overflow = 'hidden';
+    if (scrollbarWidth) bodyStyle.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`;
+    document.documentElement.classList.add('overlay-open');
+  }
+
+  function unlockPageScroll(onRestored) {
+    if (lockedPageScrollY === null || !scrollLockStyles) {
+      onRestored();
+      return;
+    }
+
+    const restoreY = lockedPageScrollY;
+    const styles = scrollLockStyles;
+    lockedPageScrollY = null;
+    scrollLockStyles = null;
+    overlayScrollRestoring = true;
+    document.documentElement.classList.remove('overlay-open');
+
+    const bodyStyle = document.body.style;
+    bodyStyle.position = styles.bodyPosition;
+    bodyStyle.top = styles.bodyTop;
+    bodyStyle.width = styles.bodyWidth;
+    bodyStyle.overflow = styles.bodyOverflow;
+    bodyStyle.paddingRight = styles.bodyPaddingRight;
+    document.documentElement.style.overflow = styles.rootOverflow;
+    window.scrollTo(0, restoreY);
+
+    overlayUnlockFrame = requestAnimationFrame(() => {
+      overlayUnlockFrame = 0;
+      overlayScrollRestoring = false;
+      onRestored();
+    });
+  }
+
   function openOverlay(overlay) {
+    const firstOverlay = menuOverlay.hidden && gameOverlay.hidden && legalOverlay.hidden;
+    if (firstOverlay) {
+      setStoryEntrySuspended(true);
+      lockPageScroll();
+      homeStory.inert = true;
+    }
     overlay.hidden = false;
-    document.body.style.overflow = 'hidden';
     overlayBlockingSocialGallery = true;
     syncSocialGalleryState();
   }
@@ -638,8 +736,12 @@ if (isCouponDesk) {
     overlay.hidden = true;
     const allOverlaysClosed = menuOverlay.hidden && gameOverlay.hidden && legalOverlay.hidden;
     if (allOverlaysClosed) {
-      document.body.style.overflow = '';
-      overlayBlockingSocialGallery = false;
+      unlockPageScroll(() => {
+        homeStory.inert = false;
+        setStoryEntrySuspended(false);
+        overlayBlockingSocialGallery = false;
+        syncSocialGalleryState();
+      });
     }
     if (overlay === gameOverlay) {
       gameLobbyController?.abort();
@@ -648,7 +750,6 @@ if (isCouponDesk) {
       activeGame = null;
       gameRoot.innerHTML = '';
     }
-    if (allOverlaysClosed) syncSocialGalleryState();
   }
 
   async function mountSelectedGame(game) {

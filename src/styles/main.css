@@ -1293,6 +1293,7 @@ body {
   justify-content: center;
   background: rgb(32 33 29 / 45%);
   backdrop-filter: blur(2px);
+  overscroll-behavior: contain;
 }
 
 .overlay[hidden] {
@@ -1307,6 +1308,9 @@ body {
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding: var(--space-6) var(--space-5) max(var(--space-6), env(safe-area-inset-bottom));
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   position: relative;
   box-shadow: var(--shadow-lg);
 }
