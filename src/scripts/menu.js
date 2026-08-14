@@ -97,7 +97,6 @@ function renderKitchenItem(item, sectionIndex, itemIndex) {
     >
       <div class="kitchen-menu__photo">
         <img src="${encodeAssetPath(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" width="960" height="720" />
-        <span class="kitchen-menu__card-action" aria-hidden="true">VIEW <span>↗</span></span>
       </div>
       <div class="kitchen-menu__card-copy">
         <div class="kitchen-menu__card-heading">
@@ -122,17 +121,27 @@ function renderKitchenDetail() {
     >
       <article class="kitchen-detail__panel" tabindex="-1">
         <button class="kitchen-detail__close" type="button" data-kitchen-detail-close aria-label="Close dish details">×</button>
-        <figure class="kitchen-detail__photo">
-          <img data-kitchen-detail-image alt="" width="1200" height="900" />
-        </figure>
-        <div class="kitchen-detail__copy">
-          <span class="kitchen-detail__category" data-kitchen-detail-category></span>
-          <div class="kitchen-detail__heading">
-            <h2 id="kitchen-detail-title" data-kitchen-detail-title></h2>
-            <strong data-kitchen-detail-price></strong>
+        <div class="kitchen-detail__content" data-kitchen-detail-content>
+          <figure class="kitchen-detail__photo">
+            <img data-kitchen-detail-image alt="" width="1200" height="900" draggable="false" />
+          </figure>
+          <div class="kitchen-detail__copy">
+            <span class="kitchen-detail__category" data-kitchen-detail-category></span>
+            <div class="kitchen-detail__heading">
+              <h2 id="kitchen-detail-title" data-kitchen-detail-title aria-live="polite"></h2>
+              <strong data-kitchen-detail-price></strong>
+            </div>
+            <span class="kitchen-detail__label">WHAT'S INSIDE</span>
+            <p id="kitchen-detail-description" data-kitchen-detail-description></p>
+            <nav class="kitchen-detail__nav" aria-label="Browse kitchen dishes">
+              <button type="button" data-kitchen-detail-prev aria-label="Previous dish">←</button>
+              <span class="kitchen-detail__position">
+                <strong data-kitchen-detail-position></strong>
+                <small>SWIPE TO BROWSE</small>
+              </span>
+              <button type="button" data-kitchen-detail-next aria-label="Next dish">→</button>
+            </nav>
           </div>
-          <span class="kitchen-detail__label">WHAT'S INSIDE</span>
-          <p id="kitchen-detail-description" data-kitchen-detail-description></p>
         </div>
       </article>
     </div>`;
@@ -154,40 +163,110 @@ export function renderMenu(container, initialTab = 'drink') {
   const overlayPanel = container.closest('.overlay__panel');
   const detail = container.querySelector('[data-kitchen-detail]');
   const detailPanel = detail.querySelector('.kitchen-detail__panel');
+  const detailContent = detail.querySelector('[data-kitchen-detail-content]');
   const detailClose = detail.querySelector('[data-kitchen-detail-close]');
+  const detailPrevious = detail.querySelector('[data-kitchen-detail-prev]');
+  const detailNext = detail.querySelector('[data-kitchen-detail-next]');
   const detailImage = detail.querySelector('[data-kitchen-detail-image]');
   const detailCategory = detail.querySelector('[data-kitchen-detail-category]');
   const detailTitle = detail.querySelector('[data-kitchen-detail-title]');
   const detailPrice = detail.querySelector('[data-kitchen-detail-price]');
   const detailDescription = detail.querySelector('[data-kitchen-detail-description]');
+  const detailPosition = detail.querySelector('[data-kitchen-detail-position]');
+  const kitchenEntries = kitchenMenu.sections.flatMap((section, sectionIndex) => (
+    section.items.map((item, itemIndex) => ({ item, itemIndex, section, sectionIndex }))
+  ));
+  const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SWIPE_DIRECTION_LOCK_PX = 10;
+  const SWIPE_THRESHOLD_PX = 52;
   let detailTrigger = null;
+  let detailIndex = -1;
+  let detailChangeTimer = 0;
+  let swipePointerId = null;
+  let swipeStartX = 0;
+  let swipeStartY = 0;
+  let swipeCurrentX = 0;
+  let swipeCurrentY = 0;
+  let swipeDirection = null;
 
   overlayPanel?.classList.remove('has-kitchen-detail-open');
 
   const closeKitchenDetail = () => {
     if (detail.hidden) return;
+    clearTimeout(detailChangeTimer);
     detail.hidden = true;
     overlayPanel?.classList.remove('has-kitchen-detail-open');
     detailTrigger?.focus({ preventScroll: true });
     detailTrigger = null;
+    detailIndex = -1;
   };
 
-  const openKitchenDetail = (trigger) => {
-    const section = kitchenMenu.sections[Number(trigger.dataset.kitchenSection)];
-    const item = section?.items[Number(trigger.dataset.kitchenItem)];
-    if (!item) return;
+  const normalizeKitchenIndex = (index) => (
+    (index + kitchenEntries.length) % kitchenEntries.length
+  );
 
-    detailTrigger = trigger;
+  const showKitchenEntry = (index, movement = 0) => {
+    const nextIndex = normalizeKitchenIndex(index);
+    const { item, section } = kitchenEntries[nextIndex];
+    detailIndex = nextIndex;
+
     detailImage.src = encodeAssetPath(item.image);
     detailImage.alt = `${item.name} at Monoblend`;
     detailCategory.textContent = section.name;
     detailTitle.textContent = item.name;
     detailPrice.textContent = formatPrice(item.price);
     detailDescription.textContent = item.desc?.replaceAll(' / ', ' · ') || '';
+    detailPosition.textContent = `${String(nextIndex + 1).padStart(2, '0')} / ${String(kitchenEntries.length).padStart(2, '0')}`;
+    detailPanel.scrollTop = 0;
+
+    clearTimeout(detailChangeTimer);
+    detailContent.classList.remove('is-entering-next', 'is-entering-previous');
+    if (movement && !prefersReducedMotion) {
+      detailContent.classList.add(movement > 0 ? 'is-entering-next' : 'is-entering-previous');
+      detailChangeTimer = window.setTimeout(() => {
+        detailContent.classList.remove('is-entering-next', 'is-entering-previous');
+      }, 240);
+    }
+  };
+
+  const moveKitchenDetail = (movement) => {
+    if (detail.hidden || !movement) return;
+    showKitchenEntry(detailIndex + movement, movement);
+  };
+
+  const openKitchenDetail = (trigger) => {
+    const sectionIndex = Number(trigger.dataset.kitchenSection);
+    const itemIndex = Number(trigger.dataset.kitchenItem);
+    const selectedIndex = kitchenEntries.findIndex((entry) => (
+      entry.sectionIndex === sectionIndex && entry.itemIndex === itemIndex
+    ));
+    if (selectedIndex < 0) return;
+
+    detailTrigger = trigger;
+    showKitchenEntry(selectedIndex);
     detail.hidden = false;
     overlayPanel?.classList.add('has-kitchen-detail-open');
-    detailPanel.scrollTop = 0;
     detailClose.focus({ preventScroll: true });
+  };
+
+  const resetKitchenSwipe = () => {
+    swipePointerId = null;
+    swipeDirection = null;
+    detailContent.classList.remove('is-dragging');
+    detailContent.style.removeProperty('transform');
+    detailContent.style.removeProperty('opacity');
+  };
+
+  const finishKitchenSwipe = (cancelled = false) => {
+    if (swipePointerId === null) return;
+    const deltaX = swipeCurrentX - swipeStartX;
+    const deltaY = swipeCurrentY - swipeStartY;
+    const shouldMove = !cancelled
+      && swipeDirection === 'horizontal'
+      && Math.abs(deltaX) >= SWIPE_THRESHOLD_PX
+      && Math.abs(deltaX) > Math.abs(deltaY);
+    resetKitchenSwipe();
+    if (shouldMove) moveKitchenDetail(deltaX < 0 ? 1 : -1);
   };
 
   container.querySelectorAll('.kitchen-menu__card').forEach((card) => {
@@ -195,6 +274,42 @@ export function renderMenu(container, initialTab = 'drink') {
   });
 
   detailClose.addEventListener('click', closeKitchenDetail);
+  detailPrevious.addEventListener('click', () => moveKitchenDetail(-1));
+  detailNext.addEventListener('click', () => moveKitchenDetail(1));
+  detailContent.addEventListener('pointerdown', (event) => {
+    if (!event.isPrimary || event.button !== 0 || event.target.closest('button')) return;
+    swipePointerId = event.pointerId;
+    swipeStartX = event.clientX;
+    swipeStartY = event.clientY;
+    swipeCurrentX = event.clientX;
+    swipeCurrentY = event.clientY;
+    swipeDirection = null;
+    detailContent.setPointerCapture(event.pointerId);
+  });
+  detailContent.addEventListener('pointermove', (event) => {
+    if (event.pointerId !== swipePointerId) return;
+    swipeCurrentX = event.clientX;
+    swipeCurrentY = event.clientY;
+    const deltaX = swipeCurrentX - swipeStartX;
+    const deltaY = swipeCurrentY - swipeStartY;
+
+    if (!swipeDirection && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= SWIPE_DIRECTION_LOCK_PX) {
+      swipeDirection = Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical';
+    }
+    if (swipeDirection !== 'horizontal') return;
+
+    if (event.cancelable) event.preventDefault();
+    const dragX = Math.max(-86, Math.min(86, deltaX * 0.48));
+    detailContent.classList.add('is-dragging');
+    detailContent.style.transform = `translate3d(${dragX}px, 0, 0)`;
+    detailContent.style.opacity = String(1 - (Math.min(86, Math.abs(dragX)) / 430));
+  });
+  detailContent.addEventListener('pointerup', (event) => {
+    if (event.pointerId === swipePointerId) finishKitchenSwipe();
+  });
+  detailContent.addEventListener('pointercancel', (event) => {
+    if (event.pointerId === swipePointerId) finishKitchenSwipe(true);
+  });
   detail.addEventListener('click', (event) => {
     if (event.target === detail) closeKitchenDetail();
   });
@@ -203,9 +318,23 @@ export function renderMenu(container, initialTab = 'drink') {
       event.preventDefault();
       event.stopPropagation();
       closeKitchenDetail();
-    } else if (event.key === 'Tab') {
+    } else if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      detailClose.focus({ preventScroll: true });
+      moveKitchenDetail(-1);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      moveKitchenDetail(1);
+    } else if (event.key === 'Tab') {
+      const focusable = [detailClose, detailPrevious, detailNext];
+      const firstFocusable = focusable[0];
+      const lastFocusable = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === firstFocusable) {
+        event.preventDefault();
+        lastFocusable.focus({ preventScroll: true });
+      } else if (!event.shiftKey && document.activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus({ preventScroll: true });
+      }
     }
   });
 

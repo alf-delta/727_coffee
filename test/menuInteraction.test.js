@@ -32,3 +32,18 @@ test('kitchen cards open an accessible, dismissible detail dialog', () => {
   assert.match(mainCss, /\.overlay__panel\.has-kitchen-detail-open\s*\{[\s\S]*?overflow:\s*hidden/);
   assert.match(mainCss, /\.kitchen-detail__photo\s*\{[\s\S]*?height:\s*min\(49svh, 490px\)/);
 });
+
+test('kitchen detail supports cyclic swipe and accessible navigation', () => {
+  assert.match(menuScript, /SWIPE_THRESHOLD_PX = 52/);
+  assert.match(menuScript, /detailContent\.addEventListener\('pointerdown'/);
+  assert.match(menuScript, /detailContent\.addEventListener\('pointermove'/);
+  assert.match(menuScript, /moveKitchenDetail\(deltaX < 0 \? 1 : -1\)/);
+  assert.match(menuScript, /\(index \+ kitchenEntries\.length\) % kitchenEntries\.length/);
+  assert.match(menuScript, /data-kitchen-detail-prev aria-label="Previous dish"/);
+  assert.match(menuScript, /data-kitchen-detail-next aria-label="Next dish"/);
+  assert.match(menuScript, /event\.key === 'ArrowLeft'/);
+  assert.match(menuScript, /event\.key === 'ArrowRight'/);
+  assert.match(mainCss, /\.kitchen-detail__content\s*\{[\s\S]*?touch-action:\s*pan-y/);
+  assert.match(mainCss, /@keyframes kitchen-detail-next/);
+  assert.match(mainCss, /@keyframes kitchen-detail-previous/);
+});
