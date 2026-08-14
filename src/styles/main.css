@@ -1315,6 +1315,39 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
+.overlay__panel--menu {
+  --menu-panel-max-height: min(88svh, 820px);
+
+  max-height: var(--menu-panel-max-height);
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+}
+
+.overlay__panel--menu > .overlay__close {
+  position: absolute;
+  top: -48px;
+  right: max(12px, env(safe-area-inset-right));
+  float: none;
+  border: 1px solid rgb(255 255 255 / 52%);
+  background: rgb(255 253 240 / 94%);
+  box-shadow: 0 9px 24px rgb(32 27 24 / 24%);
+}
+
+#menu-content {
+  width: 100%;
+  height: var(--menu-panel-max-height);
+  max-height: var(--menu-panel-max-height);
+  padding: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: transparent;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
 @media (min-width: 720px) {
   .overlay {
     align-items: center;
@@ -1323,10 +1356,15 @@ body {
     border-radius: var(--radius-xl);
     max-height: min(80svh, 720px);
   }
+
+  .overlay__panel--menu {
+    --menu-panel-max-height: min(80svh, 720px);
+  }
 }
 
 .overlay__close {
   position: sticky;
+  z-index: 30;
   top: 0;
   float: right;
   appearance: none;
@@ -1418,13 +1456,53 @@ body {
 
 .menu {
   clear: both;
-  padding-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 
 .menu__tabs {
+  position: sticky;
+  z-index: 20;
+  top: var(--space-3);
   display: flex;
+  align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-6);
+  margin: 0 var(--space-6) var(--space-6);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid rgb(55 48 45 / 7%);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-cream);
+  box-shadow:
+    0 12px 26px rgb(32 27 24 / 16%),
+    inset 0 1px 0 rgb(255 255 255 / 72%);
+}
+
+.menu__viewport {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  overflow-y: auto;
+  background: var(--color-surface-cream);
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.menu__viewport::before {
+  content: '';
+  display: block;
+  height: var(--space-3);
+  pointer-events: none;
+}
+
+.menu__body {
+  min-height: 100%;
+  padding: var(--space-6) var(--space-5) max(var(--space-6), env(safe-area-inset-bottom));
+  background: var(--color-surface-cream);
 }
 
 .menu__tab {
@@ -1568,31 +1646,41 @@ body {
 }
 
 .kitchen-menu__card {
-  appearance: none;
+  position: relative;
+  isolation: isolate;
   width: 100%;
   min-width: 0;
   overflow: hidden;
   border: 1px solid rgb(55 48 45 / 7%);
-  padding: 0;
   border-radius: 18px;
   background: rgb(255 253 240 / 90%);
-  color: inherit;
-  font: inherit;
-  text-align: left;
   box-shadow:
     0 9px 20px rgb(45 42 31 / 8%),
     inset 0 1px 0 rgb(255 255 255 / 78%);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
     transform 180ms ease;
 }
 
-.kitchen-menu__card:focus-visible {
-  outline: 3px solid rgb(155 72 35 / 32%);
-  outline-offset: 3px;
+.kitchen-menu__card-button {
+  appearance: none;
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kitchen-menu__card-button:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 3px rgb(155 72 35 / 38%);
 }
 
 @media (hover: hover) {
@@ -1666,6 +1754,10 @@ body {
 }
 
 .overlay__panel.has-kitchen-detail-open {
+  overflow: hidden;
+}
+
+.overlay__panel--menu.has-kitchen-detail-open .menu__viewport {
   overflow: hidden;
 }
 
@@ -1829,10 +1921,9 @@ body {
   width: 46px;
   height: 46px;
   place-items: center;
-  border: 1px solid rgb(55 48 45 / 10%);
-  border-radius: 50%;
+  border: 0;
   padding: 0 0 3px;
-  background: rgb(55 48 45 / 7%);
+  background: transparent;
   color: var(--color-ink-logo);
   font: 500 1.35rem/1 var(--font-body);
   cursor: pointer;
@@ -1840,7 +1931,6 @@ body {
 }
 
 .kitchen-detail__nav > button:active {
-  background: rgb(155 72 35 / 14%);
   transform: scale(0.96);
 }
 

@@ -87,14 +87,15 @@ function encodeAssetPath(path) {
 function renderKitchenItem(item, sectionIndex, itemIndex) {
   const description = item.desc?.replaceAll(' / ', ' · ') || '';
   return `
-    <button
-      class="kitchen-menu__card"
-      type="button"
-      data-kitchen-section="${sectionIndex}"
-      data-kitchen-item="${itemIndex}"
-      aria-haspopup="dialog"
-      aria-label="View ${escapeHtml(item.name)} details"
-    >
+    <article class="kitchen-menu__card">
+      <button
+        class="kitchen-menu__card-button"
+        type="button"
+        data-kitchen-section="${sectionIndex}"
+        data-kitchen-item="${itemIndex}"
+        aria-haspopup="dialog"
+        aria-label="View ${escapeHtml(item.name)} details"
+      ></button>
       <div class="kitchen-menu__photo">
         <img src="${encodeAssetPath(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" width="960" height="720" />
       </div>
@@ -105,7 +106,7 @@ function renderKitchenItem(item, sectionIndex, itemIndex) {
         </div>
         ${description ? `<p>${escapeHtml(description)}</p>` : ''}
       </div>
-    </button>`;
+    </article>`;
 }
 
 function renderKitchenDetail() {
@@ -149,18 +150,25 @@ function renderKitchenDetail() {
 
 export function renderMenu(container, initialTab = 'drink') {
   const activeTab = initialTab === 'kitchen' ? 'kitchen' : 'drink';
+  container.scrollTop = 0;
   container.innerHTML = `
     <div class="menu">
-      <div class="menu__tabs" role="tablist">
-        <button class="menu__tab" role="tab" aria-selected="${activeTab === 'drink'}" data-tab="drink">${drinkMenu.title}</button>
-        <button class="menu__tab" role="tab" aria-selected="${activeTab === 'kitchen'}" data-tab="kitchen">${kitchenMenu.title}</button>
+      <div class="menu__viewport">
+        <div class="menu__tabs" role="tablist">
+          <button class="menu__tab" role="tab" aria-selected="${activeTab === 'drink'}" data-tab="drink">${drinkMenu.title}</button>
+          <button class="menu__tab" role="tab" aria-selected="${activeTab === 'kitchen'}" data-tab="kitchen">${kitchenMenu.title}</button>
+        </div>
+        <div class="menu__body">
+          <div data-panel="drink" ${activeTab === 'drink' ? '' : 'hidden'}>${renderSections(drinkMenu)}</div>
+          <div class="kitchen-menu" data-panel="kitchen" ${activeTab === 'kitchen' ? '' : 'hidden'}>${renderKitchenMenu(kitchenMenu)}</div>
+        </div>
       </div>
-      <div data-panel="drink" ${activeTab === 'drink' ? '' : 'hidden'}>${renderSections(drinkMenu)}</div>
-      <div class="kitchen-menu" data-panel="kitchen" ${activeTab === 'kitchen' ? '' : 'hidden'}>${renderKitchenMenu(kitchenMenu)}</div>
       ${renderKitchenDetail()}
     </div>`;
 
   const overlayPanel = container.closest('.overlay__panel');
+  const menuViewport = container.querySelector('.menu__viewport');
+  menuViewport.scrollTop = 0;
   const detail = container.querySelector('[data-kitchen-detail]');
   const detailPanel = detail.querySelector('.kitchen-detail__panel');
   const detailContent = detail.querySelector('[data-kitchen-detail-content]');
@@ -269,8 +277,8 @@ export function renderMenu(container, initialTab = 'drink') {
     if (shouldMove) moveKitchenDetail(deltaX < 0 ? 1 : -1);
   };
 
-  container.querySelectorAll('.kitchen-menu__card').forEach((card) => {
-    card.addEventListener('click', () => openKitchenDetail(card));
+  container.querySelectorAll('.kitchen-menu__card-button').forEach((button) => {
+    button.addEventListener('click', () => openKitchenDetail(button));
   });
 
   detailClose.addEventListener('click', closeKitchenDetail);
@@ -346,6 +354,7 @@ export function renderMenu(container, initialTab = 'drink') {
       container.querySelectorAll('[data-panel]').forEach((panel) => {
         panel.hidden = panel.dataset.panel !== tab.dataset.tab;
       });
+      menuViewport.scrollTop = 0;
     });
   });
 
