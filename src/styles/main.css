@@ -1568,17 +1568,45 @@ body {
 }
 
 .kitchen-menu__card {
+  appearance: none;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   border: 1px solid rgb(55 48 45 / 7%);
+  padding: 0;
   border-radius: 18px;
   background: rgb(255 253 240 / 90%);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   box-shadow:
     0 9px 20px rgb(45 42 31 / 8%),
     inset 0 1px 0 rgb(255 255 255 / 78%);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.kitchen-menu__card:focus-visible {
+  outline: 3px solid rgb(155 72 35 / 32%);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .kitchen-menu__card:hover {
+    border-color: rgb(155 72 35 / 18%);
+    box-shadow:
+      0 13px 27px rgb(45 42 31 / 13%),
+      inset 0 1px 0 rgb(255 255 255 / 90%);
+    transform: translateY(-2px);
+  }
 }
 
 .kitchen-menu__photo {
+  position: relative;
   aspect-ratio: 1.24 / 1;
   overflow: hidden;
   background: #ddd8c4;
@@ -1594,6 +1622,32 @@ body {
 
 .kitchen-menu__card:active .kitchen-menu__photo img {
   transform: scale(1.018);
+}
+
+.kitchen-menu__card-action {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 25px;
+  padding: 5px 9px;
+  border: 1px solid rgb(255 255 255 / 64%);
+  border-radius: var(--radius-pill);
+  background: rgb(31 29 26 / 68%);
+  backdrop-filter: blur(8px);
+  color: #fffdf0;
+  font-size: 0.54rem;
+  font-weight: var(--font-weight-black);
+  letter-spacing: 0.12em;
+  line-height: 1;
+  box-shadow: 0 3px 11px rgb(0 0 0 / 16%);
+}
+
+.kitchen-menu__card-action span {
+  font-size: 0.75rem;
+  line-height: 0.8;
 }
 
 .kitchen-menu__card-copy {
@@ -1635,6 +1689,176 @@ body {
 
 .kitchen-menu__notes {
   margin-bottom: var(--space-4);
+}
+
+.overlay__panel.has-kitchen-detail-open {
+  overflow: hidden;
+}
+
+.kitchen-detail {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding-top: max(24px, env(safe-area-inset-top));
+  background: rgb(30 27 24 / 62%);
+  backdrop-filter: blur(7px);
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+.kitchen-detail[hidden] {
+  display: none;
+}
+
+.kitchen-detail__panel {
+  position: relative;
+  width: min(100%, 560px);
+  max-height: calc(100svh - max(24px, env(safe-area-inset-top)));
+  overflow-y: auto;
+  border: 1px solid rgb(255 255 255 / 44%);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: #fffbea;
+  box-shadow: 0 -18px 55px rgb(24 20 17 / 28%);
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  animation: kitchen-detail-enter 260ms cubic-bezier(0.22, 0.8, 0.25, 1) both;
+}
+
+.kitchen-detail__close {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 72%);
+  border-radius: 50%;
+  padding: 0 0 3px;
+  background: rgb(34 31 28 / 72%);
+  backdrop-filter: blur(10px);
+  color: #fffbea;
+  font: 400 1.9rem/1 var(--font-body);
+  box-shadow: 0 5px 17px rgb(0 0 0 / 18%);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kitchen-detail__close:focus-visible {
+  outline: 3px solid #ffd267;
+  outline-offset: 3px;
+}
+
+.kitchen-detail__photo {
+  height: min(49svh, 490px);
+  min-height: 300px;
+  margin: 0;
+  overflow: hidden;
+  background: #ddd8c4;
+}
+
+.kitchen-detail__photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kitchen-detail__copy {
+  padding: 22px 22px max(28px, env(safe-area-inset-bottom));
+}
+
+.kitchen-detail__category,
+.kitchen-detail__label {
+  display: block;
+  color: var(--color-accent-rust);
+  font-size: 0.62rem;
+  font-weight: var(--font-weight-black);
+  letter-spacing: 0.15em;
+}
+
+.kitchen-detail__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 9px 0 22px;
+}
+
+.kitchen-detail__heading h2 {
+  margin: 0;
+  color: var(--color-ink-logo);
+  font-size: clamp(1.75rem, 8vw, 2.45rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.kitchen-detail__heading strong {
+  flex: 0 0 auto;
+  padding-top: 4px;
+  color: var(--color-accent-rust);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.kitchen-detail__label {
+  color: rgb(55 48 45 / 46%);
+  font-size: 0.56rem;
+}
+
+.kitchen-detail__copy p {
+  margin: 8px 0 0;
+  color: var(--color-muted-500);
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+@keyframes kitchen-detail-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (min-width: 720px) {
+  .kitchen-detail {
+    align-items: center;
+    padding: 28px;
+  }
+
+  .kitchen-detail__panel {
+    max-height: min(88svh, 780px);
+    border-bottom: 1px solid rgb(255 255 255 / 44%);
+    border-radius: 28px;
+  }
+}
+
+@media (max-height: 650px) {
+  .kitchen-detail__photo {
+    height: 42svh;
+    min-height: 220px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kitchen-detail__panel {
+    animation-duration: 0.01ms;
+  }
+
+  .kitchen-menu__card,
+  .kitchen-menu__photo img {
+    transition-duration: 0.01ms;
+  }
 }
 
 @media (max-width: 370px) {
