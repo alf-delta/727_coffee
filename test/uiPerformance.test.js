@@ -37,6 +37,16 @@ test('ui performance: offscreen work and decoder count remain bounded', () => {
   assert.doesNotMatch(mainScript, /cloneNode\(true\)/);
 });
 
+test('ui interaction: touch carousel lets Safari momentum settle before auto-scrolling', () => {
+  assert.match(mainScript, /touchScrollIsActive/);
+  assert.match(mainScript, /if \(!loopWidth \|\| touchScrollIsActive\(\)\) return/);
+  assert.match(mainScript, /!touchScrollIsActive\(\)[\s\S]*?frameTime >= autoScrollPausedUntil/);
+  assert.match(mainScript, /socialScroller\.addEventListener\('touchend', finishTouchScroll/);
+  assert.match(mainScript, /socialScroller\.addEventListener\('touchcancel', finishTouchScroll/);
+  assert.match(mainCss, /\.social-gallery__scroller\s*\{[\s\S]*?touch-action:\s*pan-x/);
+  assert.match(mainCss, /@media \(hover: none\) and \(pointer: coarse\)[\s\S]*?backdrop-filter:\s*none/);
+});
+
 test('ui performance: mobile viewport is stable and mobile story has no parallax', () => {
   assert.doesNotMatch(mainCss, /\bdvh\b/);
   assert.match(mainCss, /height:\s*100svh/);

@@ -188,12 +188,17 @@ if (isCouponDesk) {
     let dragStartScrollLeft = 0;
     let draggedDistance = 0;
     let isMouseDragging = false;
+    let isTouchingScroller = false;
+    let isTouchScrollSettling = false;
+    let touchScrollSettleTimer = 0;
     let loopPositionReady = false;
     let autoScrollPosition = socialScroller.scrollLeft;
     let cardGeometry = new WeakMap();
     const firstSet = socialTrack.querySelector('.social-gallery__set');
     const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const loopDurationMs = 42240;
+    const touchScrollSettleMs = 180;
+    const autoScrollResumeDelayMs = 1200;
 
     if ('IntersectionObserver' in window) {
       const cardObserver = new IntersectionObserver((entries) => {
@@ -216,8 +221,26 @@ if (isCouponDesk) {
       autoScrollPausedUntil = performance.now() + durationMs;
     };
 
+    const touchScrollIsActive = () => isTouchingScroller || isTouchScrollSettling;
+
+    const scheduleTouchScrollSettle = () => {
+      clearTimeout(touchScrollSettleTimer);
+      if (isTouchingScroller) return;
+      isTouchScrollSettling = true;
+      touchScrollSettleTimer = window.setTimeout(() => {
+        isTouchScrollSettling = false;
+        touchScrollSettleTimer = 0;
+        autoScrollPosition = socialScroller.scrollLeft;
+        pauseAutoScroll(autoScrollResumeDelayMs);
+        startSocialArc();
+      }, touchScrollSettleMs);
+    };
+
     const normalizeLoopPosition = (loopWidth) => {
-      if (!loopWidth) return;
+      // Never fight Safari's native momentum scrolling. Loop normalization is
+      // visually lossless after it settles, but writing scrollLeft mid-gesture
+      // makes iOS cancel momentum and briefly miscompose transformed videos.
+      if (!loopWidth || touchScrollIsActive()) return;
       if (!loopPositionReady) {
         socialScroller.scrollLeft = loopWidth;
         autoScrollPosition = loopWidth;
@@ -249,7 +272,12 @@ if (isCouponDesk) {
 
       const loopWidth = firstSet?.offsetWidth || 0;
       normalizeLoopPosition(loopWidth);
-      if (!prefersReducedMotion && loopWidth && frameTime >= autoScrollPausedUntil) {
+      if (
+        !prefersReducedMotion
+        && !touchScrollIsActive()
+        && loopWidth
+        && frameTime >= autoScrollPausedUntil
+      ) {
         autoScrollPosition += (loopWidth / loopDurationMs) * elapsedMs;
         socialScroller.scrollLeft = autoScrollPosition;
         normalizeLoopPosition(loopWidth);
@@ -299,9 +327,24 @@ if (isCouponDesk) {
     };
 
     socialScroller.addEventListener('scroll', () => {
+      autoScrollPosition = socialScroller.scrollLeft;
+      if (isTouchScrollSettling && !isTouchingScroller) scheduleTouchScrollSettle();
       if (prefersReducedMotion) startSocialArc();
     }, { passive: true });
-    socialScroller.addEventListener('touchstart', () => pauseAutoScroll(), { passive: true });
+    socialScroller.addEventListener('touchstart', () => {
+      clearTimeout(touchScrollSettleTimer);
+      touchScrollSettleTimer = 0;
+      isTouchingScroller = true;
+      isTouchScrollSettling = true;
+      autoScrollPosition = socialScroller.scrollLeft;
+      pauseAutoScroll();
+    }, { passive: true });
+    const finishTouchScroll = () => {
+      isTouchingScroller = false;
+      scheduleTouchScrollSettle();
+    };
+    socialScroller.addEventListener('touchend', finishTouchScroll, { passive: true });
+    socialScroller.addEventListener('touchcancel', finishTouchScroll, { passive: true });
     socialScroller.addEventListener('wheel', () => pauseAutoScroll(), { passive: true });
     socialScroller.addEventListener('keydown', (event) => {
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;

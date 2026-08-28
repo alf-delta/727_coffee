@@ -323,7 +323,9 @@ body {
   padding: 14px 0 50px;
   overflow-x: auto;
   overflow-y: hidden;
+  overflow-anchor: none;
   cursor: grab;
+  touch-action: pan-x;
   overscroll-behavior-inline: contain;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -382,6 +384,7 @@ body {
 .social-gallery__track {
   position: relative;
   transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 .social-gallery__set {
@@ -408,6 +411,8 @@ body {
     0 11px 21px rgb(45 42 31 / 14%),
     inset 0 0 0 1px rgb(255 255 255 / 45%);
   will-change: transform;
+  backface-visibility: hidden;
+  contain: layout paint;
 }
 
 .social-gallery__card::after {
@@ -442,6 +447,19 @@ body {
   object-fit: cover;
   object-position: center;
   transition: transform 700ms ease;
+}
+
+.social-gallery__card video {
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .social-gallery__viewport::before,
+  .social-gallery__viewport::after {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .social-gallery__card:hover img,
