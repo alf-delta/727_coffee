@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { simulateRun, GRAVITY, FLAP_VELOCITY, VELOCITY_CAPS, clamp } from '../src/shared/flappyPhysics.js';
+import {
+  simulateRun,
+  GRAVITY,
+  FLAP_VELOCITY,
+  VELOCITY_CAPS,
+  OBSTACLE_WIDTH_VW,
+  CHARACTER_RADIUS_VW,
+  clamp,
+  hasClearedObstacle,
+} from '../src/shared/flappyPhysics.js';
 
 /**
  * A deliberately simple, non-clairvoyant autopilot: it only knows the
@@ -48,4 +57,15 @@ test('flappy physics: world position starts at zero, not offset by the on-screen
   const result = simulateRun(1, [], 6000);
   assert.equal(result.collisionType, 'falls_below_play_area');
   assert.ok(result.survivalSeconds > 0.5, `expected to fall for a bit before hitting the floor, got ${result.survivalSeconds}`);
+});
+
+test('flappy physics: every obstacle type can add to the score only once', () => {
+  for (const type of ['standard', 'moving_fork', 'steam_pulse', 'double_gate']) {
+    const obstacle = { x: 1, type, scored: false };
+    const clearedX = obstacle.x + OBSTACLE_WIDTH_VW / 2 + CHARACTER_RADIUS_VW + 0.001;
+
+    assert.equal(hasClearedObstacle(obstacle, clearedX), true, `${type} should score when first cleared`);
+    obstacle.scored = true;
+    assert.equal(hasClearedObstacle(obstacle, clearedX), false, `${type} must not score on later frames`);
+  }
 });

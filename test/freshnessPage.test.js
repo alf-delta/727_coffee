@@ -44,6 +44,9 @@ test('freshness story repeatedly gives visitors a route to the cafe', () => {
   assert.match(freshnessMarkup, /href="\/\?game=arcade"/);
   assert.match(freshnessMarkup, /UP TO 25% OFF/);
   assert.match(freshnessMarkup, /PLAY FOR A DISCOUNT/);
+  assert.doesNotMatch(freshnessMarkup, /[←→↑↓↗↘↖↙]/);
+  assert.match(freshnessMarkup, /OPEN IN GOOGLE MAPS/);
+  assert.match(freshnessMarkup, /OPENS THE ARCADE/);
 });
 
 test('hero stays focused on the visit instead of showing a roast-date widget', () => {

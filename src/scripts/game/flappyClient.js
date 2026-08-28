@@ -15,6 +15,7 @@ import {
   generateObstacleSequence,
   getDifficultyStage,
   getWorldSpeedMultiplier,
+  hasClearedObstacle,
   clamp,
 } from '../../shared/flappyPhysics.js';
 import { computeFlappyResult } from '../../shared/flappyScoring.js';
@@ -363,7 +364,7 @@ export function mount(container, options = {}) {
     const characterX = worldDistance;
 
     for (const obstacle of obstacles) {
-      if (obstacle.scored && obstacle.type !== 'double_gate') continue;
+      if (obstacle.scored) continue;
       const left = obstacle.x - OBSTACLE_WIDTH_VW / 2 - CHARACTER_RADIUS_VW;
       const right = obstacle.x + OBSTACLE_WIDTH_VW / 2 + CHARACTER_RADIUS_VW;
 
@@ -375,7 +376,7 @@ export function mount(container, options = {}) {
         }
       }
 
-      if (characterX > obstacle.x + OBSTACLE_WIDTH_VW / 2 + CHARACTER_RADIUS_VW) {
+      if (hasClearedObstacle(obstacle, characterX)) {
         obstacle.scored = true;
         passedObstacles += 1;
         const normalizedOffset = Math.abs(y - obstacle.gapCenter) / obstacle.gapPct;

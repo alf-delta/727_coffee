@@ -127,6 +127,16 @@ export function clamp(v, min, max) {
 }
 
 /**
+ * A gate contributes to the score exactly once, after the character has
+ * cleared its full collision width. Keep this shared between the live game
+ * and the authoritative replay so special obstacle types cannot drift apart.
+ */
+export function hasClearedObstacle(obstacle, characterX) {
+  return !obstacle.scored
+    && characterX > obstacle.x + OBSTACLE_WIDTH_VW / 2 + CHARACTER_RADIUS_VW;
+}
+
+/**
  * Deterministically generate enough obstacles to cover maxDurationSeconds of
  * play at the fastest possible stage speed. Pure function of the seed.
  */
@@ -308,7 +318,7 @@ export function simulateRun(seed, flapTimesMs, maxDurationMs) {
         }
       }
 
-      if (!obstacle.scored && characterX > obstacle.x + OBSTACLE_WIDTH_VW / 2 + CHARACTER_RADIUS_VW) {
+      if (hasClearedObstacle(obstacle, characterX)) {
         obstacle.scored = true;
         passedObstacles += 1;
         const center = obstacle.gapCenter;
