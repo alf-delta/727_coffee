@@ -43,6 +43,12 @@ try {
   assert.equal(checkerResponse.status, 200);
   assert.match(await checkerResponse.text(), /Coupon Checker · Monoblend Coffee/);
 
+  const freshnessResponse = await fetch(`${BASE_URL}/freshness/`);
+  const freshness = await freshnessResponse.text();
+  assert.equal(freshnessResponse.status, 200);
+  assert.match(freshness, /Your coffee had a[\s\S]*very short commute/);
+  assert.match(freshness, /noindex, nofollow, noarchive/);
+
   const videoResponse = await fetch(`${BASE_URL}/social/reel-01-mobile.mp4`, { method: 'HEAD' });
   assert.equal(videoResponse.status, 200);
   assert.equal(videoResponse.headers.get('content-type'), 'video/mp4');

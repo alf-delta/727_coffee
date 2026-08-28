@@ -4,6 +4,7 @@ dist/
 .env
 .env.local
 .DS_Store
+AGENTS.md
 
 # Original upload copies; the web-ready copies live in public/social/.
 /reel_*.mp4

@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         checker: resolve(import.meta.dirname, 'checker/index.html'),
+        freshness: resolve(import.meta.dirname, 'freshness/index.html'),
       },
     },
   },
