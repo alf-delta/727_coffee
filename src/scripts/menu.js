@@ -10,6 +10,22 @@ function escapeHtml(value) {
   })[character]);
 }
 
+export function renderMenuHighlight(item, { detail = false, now = new Date() } = {}) {
+  const highlight = item.highlight;
+  if (!highlight) return '';
+  if (highlight.month) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', year: 'numeric', month: '2-digit',
+    }).formatToParts(now);
+    const month = `${parts.find((part) => part.type === 'year').value}-${parts.find((part) => part.type === 'month').value}`;
+    if (highlight.month !== month) return '';
+  }
+  return `<div class="menu-highlight">
+    <span class="menu-highlight__badge" data-highlight>${escapeHtml(highlight.title)}<svg class="menu-highlight__star" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="10" /><path d="m10 4 1.75 3.55 3.92.57-2.84 2.77.67 3.91L10 12.95 6.5 14.8l.67-3.91-2.84-2.77 3.92-.57Z" /></svg></span>
+    ${detail ? `<p class="menu-highlight__description">${escapeHtml(highlight.description)}</p>` : ''}
+  </div>`;
+}
+
 function renderSections(menu) {
   const sections = menu.sections
     .map(
@@ -37,7 +53,6 @@ function renderKitchenMenu(menu) {
     .map((section, sectionIndex) => `
       <section class="kitchen-menu__section" id="${kitchenSectionId(sectionIndex)}">
         <div class="kitchen-menu__section-heading">
-          <span>${String(sectionIndex + 1).padStart(2, '0')}</span>
           <h3>${section.name}</h3>
         </div>
         <div class="kitchen-menu__grid">
@@ -69,8 +84,10 @@ function formatPrice(price) {
 function renderItem(item) {
   const price = formatPrice(item.price);
   const desc = item.desc || item.note;
+  const highlight = renderMenuHighlight(item);
   return `
-    <div class="menu__item">
+    <div class="menu__item"${highlight ? ' data-highlight' : ''}>
+      ${highlight}
       <div class="menu__item-row">
         <span class="menu__item-name">${item.name}</span>
         <span class="menu__item-leader" aria-hidden="true"></span>
@@ -86,8 +103,9 @@ function encodeAssetPath(path) {
 
 function renderKitchenItem(item, sectionIndex, itemIndex) {
   const description = item.desc?.replaceAll(' / ', ' · ') || '';
+  const highlight = renderMenuHighlight(item);
   return `
-    <article class="kitchen-menu__card">
+    <article class="kitchen-menu__card"${highlight ? ' data-highlight' : ''}>
       <button
         class="kitchen-menu__card-button"
         type="button"
@@ -100,6 +118,7 @@ function renderKitchenItem(item, sectionIndex, itemIndex) {
         <img src="${encodeAssetPath(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" width="960" height="720" />
       </div>
       <div class="kitchen-menu__card-copy">
+        ${highlight}
         <div class="kitchen-menu__card-heading">
           <h4>${escapeHtml(item.name)}</h4>
           <strong>${formatPrice(item.price)}</strong>
@@ -132,6 +151,7 @@ function renderKitchenDetail() {
               <h2 id="kitchen-detail-title" data-kitchen-detail-title aria-live="polite"></h2>
               <strong data-kitchen-detail-price></strong>
             </div>
+            <div data-kitchen-detail-highlight hidden></div>
             <span class="kitchen-detail__label">WHAT'S INSIDE</span>
             <p id="kitchen-detail-description" data-kitchen-detail-description></p>
             <nav class="kitchen-detail__nav" aria-label="Browse kitchen dishes">
@@ -220,6 +240,10 @@ export function renderMenu(container, initialTab = 'drink') {
 
     detailImage.src = encodeAssetPath(item.image);
     detailImage.alt = `${item.name} at Monoblend`;
+    const highlightHolder = detail.querySelector('[data-kitchen-detail-highlight]');
+    const highlightMarkup = renderMenuHighlight(item, { detail: true });
+    highlightHolder.innerHTML = highlightMarkup;
+    highlightHolder.hidden = !highlightMarkup;
     detailCategory.textContent = section.name;
     detailTitle.textContent = item.name;
     detailPrice.textContent = formatPrice(item.price);

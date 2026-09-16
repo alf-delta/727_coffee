@@ -8,14 +8,14 @@ export const drinkMenu = {
         { name: 'Long Black', price: '4.50' },
         { name: 'Cortado', price: '5.50' },
         { name: 'Cappuccino', price: '5.50' },
-        { name: 'Latte', price: '6.50' },
+        { name: 'Latte', price: '6.50', highlight: { title: 'ALL-TIME BESTSELLER', description: 'Our bestselling coffee of all time' } },
         { name: 'Mocha', price: '7.50' },
       ],
     },
     {
       name: 'Signature Coffee',
       items: [
-        { name: 'Vanilla Silky Latte', price: '7.50' },
+        { name: 'Vanilla Bean Silky Latte', price: '7.50', highlight: { title: 'MONTH’S BESTSELLER', description: 'Our most-loved coffee this month', month: '2026-09' } },
         { name: 'Crème Brûlée Latte', price: '8.00' },
       ],
     },
@@ -35,7 +35,7 @@ export const drinkMenu = {
       name: 'Iced Coffee',
       sizes: ['S', 'L'],
       items: [
-        { name: 'Cold Brew', price: ['4.50', '6.00'] },
+        { name: 'Cold Brew', price: ['4.50', '6.00'], highlight: { title: 'GUEST FAVORITE · ICED', description: 'Our guests’ favorite iced drink' } },
         { name: 'Iced Americano', price: ['5.00', '7.00'] },
         { name: 'Iced Latte', price: ['6.00', '8.00'] },
         { name: 'Espresso Tonic', price: '7.00' },
@@ -44,9 +44,9 @@ export const drinkMenu = {
     {
       name: 'Tea & Matcha',
       items: [
-        { name: 'Matcha Latte', price: '7.00' },
+        { name: 'Matcha Latte', price: '7.00', highlight: { title: 'MATCHA BESTSELLER', description: 'Our bestselling matcha drink' } },
         { name: 'Chai Latte', price: '7.00' },
-        { name: 'Passion Fruit Sea Buckthorn', price: '8.00' },
+        { name: 'Sea Buckthorn', price: '8.00', highlight: { title: '#1 WELLNESS PICK', description: 'The top pick for wellness-minded guests' } },
         { name: 'Soba Buckwheat Tea', price: '6.50' },
         { name: 'Tea', price: '4.50', note: 'Black Tea / Green Tea / Fruit Infusion / Chamomile' },
       ],
@@ -58,7 +58,7 @@ export const drinkMenu = {
         { name: 'Iced Tea', price: ['5.00', '6.50'] },
         { name: 'Iced Matcha Latte', price: ['7.00', '9.00'] },
         { name: 'Matcha Piña Colada', price: ['8.00', '9.50'] },
-        { name: 'Cherry Matcha', price: ['8.00', '9.50'] },
+        { name: 'Cherry Matcha', price: ['8.00', '9.50'], highlight: { title: 'GUEST FAVORITE', description: 'Our guests’ favorite in this section' } },
       ],
     },
   ],
@@ -72,8 +72,7 @@ export const kitchenMenu = {
       name: 'All-Day Breakfast & Brunch',
       items: [
         { name: 'Eggs Benedict', price: '17.00', image: '/kitchen_menu/Eggs Benedict.webp', desc: 'English Muffin / Organic Turkey / Poached Eggs / Hollandaise Sauce / Shichimi Togarashi / Side Salad' },
-        { name: 'Avocado Egg Toast', price: '16.00', image: '/kitchen_menu/Avocado Egg Toast.webp', desc: 'Sourdough / Microgreens / Guacamole / Onions / Poached Egg / Aged Parmesan' },
-        { name: 'English Breakfast Style Pot', price: '18.00', image: '/kitchen_menu/English Breakfast Style Pot.webp', desc: 'Schiacciata Bread / Oak-Smoked Chicken / Egg / Beans / Roasted Potatoes / Passata' },
+        { name: 'Avocado Egg Toast', price: '16.00', highlight: { title: 'BRUNCH BESTSELLER', description: 'Our bestselling breakfast and brunch dish' }, image: '/kitchen_menu/Avocado Egg Toast.webp', desc: 'Sourdough / Microgreens / Guacamole / Onions / Poached Egg / Aged Parmesan' },
         { name: 'Smoked Salmon Cream Cheese Toast', price: '19.00', image: '/kitchen_menu/Smoked Salmon Cream Cheese Toast.webp', desc: 'Sourdough / Cream Cheese / Pesto / Lemon Zest / Dill / Capers' },
         { name: 'Chia Cup', price: '12.00', image: '/kitchen_menu/Chia Cup.webp', desc: 'Chia Seeds / Greek Yogurt / Pistachios / Organic Berry Jam / Fresh Berries' },
       ],
@@ -81,17 +80,17 @@ export const kitchenMenu = {
     {
       name: 'Mono Blend Signatures',
       items: [
-        { name: 'Syrnik Classic', price: '18.00', image: '/kitchen_menu/Syrnik Classic.webp', desc: "Baked Farmer's Cheese Pancakes / Sour Cream / Strawberry Sauce / Fresh Berries" },
-        { name: 'Syrnik Pistachio & Raspberry', price: '19.50', image: '/kitchen_menu/syrnik-pistachio-raspberry.webp', desc: "Baked Farmer's Cheese Pancakes / Roasted Pistachio Custard / Raspberries / Mint" },
+        { name: 'Syrnik Classic', price: '18.00', highlight: { title: 'POPULAR PICK', description: 'One of our most-ordered dishes' }, image: '/kitchen_menu/Syrnik Classic.webp', desc: "Baked Farmer's Cheese Pancakes / Sour Cream / Strawberry Sauce / Fresh Berries" },
+        { name: 'Syrnik Pistachio & Raspberry', price: '19.50', highlight: { title: 'KITCHEN BESTSELLER', description: 'Our most-ordered kitchen dish' }, image: '/kitchen_menu/syrnik-pistachio-raspberry.webp', desc: "Baked Farmer's Cheese Pancakes / Roasted Pistachio Custard / Raspberries / Mint" },
         { name: 'Syrnik Oreo & Cherry', price: '19.50', image: '/kitchen_menu/syrnik-oreo-cherry.webp', desc: "Baked Farmer's Cheese Pancakes / Maraschino Cherry Sauce / Mascarpone Cream / Oreo Cookie Crumble" },
       ],
     },
     {
-      name: 'Salads',
+      name: 'Wraps',
       items: [
-        { name: 'Burrata and Seasonal Tomatoes', price: '18.00', image: '/kitchen_menu/Burrata and Seasonal Tomatoes.webp', desc: 'Creamy Burrata / Garden Tomato Selection / Genovese Pesto / Modena Balsamic / Pea Shoots' },
-        { name: 'Caesar Salad and Smoked Chicken', price: '17.00', image: '/kitchen_menu/Caesar Salad and Smoked Chicken.webp', desc: 'Romaine Lettuce / Smoked Chicken / Caesar Dressing / Aged Parmesan / Croutons' },
-        { name: 'Greek', price: '16.00', image: '/kitchen_menu/Greek.webp', desc: 'Organic Feta / Mediterranean Olives / Garden Vegetables / Oregano / Honey-Mustard Dressing' },
+        { name: 'Caesar Wrap', price: '16.00', highlight: { title: 'NEW MENU PICK', description: 'Try something new: our Caesar Wrap' }, image: '/kitchen_menu/caesar-wrap.webp', desc: 'Smoked Chicken / Romaine Lettuce / Caesar Dressing / Parmesan' },
+        { name: 'Salmon Wrap', price: '18.00', image: '/kitchen_menu/salmon-wrap.webp', desc: 'Smoked Salmon / Capers / Tzatziki / Avocado / Green Mix / Cucumber / Red Onion' },
+        { name: 'Turkey Wrap', price: '17.00', image: '/kitchen_menu/turkey-wrap.webp', desc: 'Turkey Breast / Swiss Cheese / Green Mix / White Garlic Sauce / Grilled Pepper' },
       ],
     },
     {
@@ -100,7 +99,7 @@ export const kitchenMenu = {
         { name: 'Grilled Chicken Panini', price: '17.00', image: '/kitchen_menu/Grilled Chicken Panini.webp', desc: 'Organic Chicken Breast / Mozzarella / Guacamole / Pico De Gallo / Sour Cream / Lime' },
         { name: 'Turkey Swiss Melt', price: '16.00', image: '/kitchen_menu/Turkey Swiss Melt.webp', desc: 'Turkey Breast / Swiss Cheese / Light Sauce / Pickles / Lettuce' },
         { name: 'Caprese Toast', price: '16.00', image: '/kitchen_menu/Caprese Toast.webp', desc: 'Garden Tomatoes / Fresh Mozzarella / Arugula / Genovese Pesto / Aged Balsamic / EVOO' },
-        { name: 'Tuna Avo Sandwich', price: '17.00', image: '/kitchen_menu/Tuna Avo Sandwich.webp', desc: 'Albacore Tuna / Mayo / Avocado / Pickles / Tomatoes / Japanese Spices / Fresh Herbs' },
+        { name: 'Tuna Avo Sandwich', price: '17.00', highlight: { title: 'SANDWICH BESTSELLER', description: 'Our bestselling sandwich' }, image: '/kitchen_menu/Tuna Avo Sandwich.webp', desc: 'Albacore Tuna / Mayo / Avocado / Pickles / Tomatoes / Japanese Spices / Fresh Herbs' },
       ],
     },
   ],

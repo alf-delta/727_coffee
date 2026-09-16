@@ -1558,6 +1558,82 @@ body {
   margin-bottom: var(--space-5);
 }
 
+[data-highlight] {
+  --menu-highlight-surface: #eee7bf;
+  --menu-highlight-ink: #5d542b;
+}
+
+.menu__item[data-highlight] {
+  margin-inline: -8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: var(--menu-highlight-surface);
+  box-shadow: 0 3px 8px rgb(93 84 43 / 9%);
+}
+
+.menu__item[data-highlight] .menu-highlight {
+  margin-bottom: 3px;
+  line-height: 1;
+}
+
+.menu__item[data-highlight] .menu__item-row {
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.menu__item[data-highlight] .menu__item-leader {
+  border-color: rgb(93 84 43 / 45%);
+}
+
+.menu__item[data-highlight] .menu__item-name,
+.menu__item[data-highlight] .menu__item-price {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+}
+
+.menu__item[data-highlight] .menu__item-price {
+  color: var(--menu-highlight-ink);
+}
+
+.menu-highlight {
+  margin-bottom: 9px;
+}
+
+.menu-highlight__badge {
+  color: var(--menu-highlight-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.35;
+  letter-spacing: 0.045em;
+}
+
+.menu-highlight__star {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  fill: #9b8b45;
+}
+
+.menu-highlight__star path {
+  fill: var(--menu-highlight-surface);
+}
+
+.menu-highlight__description {
+  margin: 7px 0 0;
+  color: var(--color-muted-500);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.kitchen-detail__copy > [data-kitchen-detail-highlight] .menu-highlight {
+  margin-bottom: 22px;
+}
+
 .menu__item-row {
   display: flex;
   align-items: baseline;
@@ -1643,13 +1719,6 @@ body {
   margin-bottom: 12px;
 }
 
-.kitchen-menu__section-heading span {
-  color: var(--color-accent-rust);
-  font-size: 0.65rem;
-  font-weight: var(--font-weight-black);
-  letter-spacing: 0.12em;
-}
-
 .kitchen-menu__section-heading h3 {
   margin: 0;
   color: var(--color-ink-logo);
@@ -1679,6 +1748,15 @@ body {
     border-color 180ms ease,
     box-shadow 180ms ease,
     transform 180ms ease;
+}
+
+.kitchen-menu__card[data-highlight] {
+  background: var(--menu-highlight-surface);
+  border-color: transparent;
+}
+
+.kitchen-menu__card[data-highlight] .kitchen-menu__card-heading strong {
+  color: var(--menu-highlight-ink);
 }
 
 .kitchen-menu__card-button {

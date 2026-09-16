@@ -25,7 +25,7 @@ test('kitchen cards expose complete detail content and valid images', async () =
 
 test('kitchen cards open an accessible, dismissible detail dialog', () => {
   assert.match(menuScript, /class="kitchen-menu__card-button"[\s\S]*?aria-haspopup="dialog"/);
-  assert.match(menuScript, /<article class="kitchen-menu__card">/);
+  assert.match(menuScript, /<article class="kitchen-menu__card"/);
   assert.match(menuScript, /role="dialog"[\s\S]*?aria-modal="true"/);
   assert.match(menuScript, /detailImage\.src = encodeAssetPath\(item\.image\)/);
   assert.match(menuScript, /detailDescription\.textContent = item\.desc/);
