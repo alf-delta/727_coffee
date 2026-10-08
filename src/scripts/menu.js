@@ -26,12 +26,13 @@ export function renderMenuHighlight(item, { detail = false, now = new Date() } =
   </div>`;
 }
 
-function renderSections(menu) {
+export function renderSections(menu) {
   const sections = menu.sections
     .map(
       (section) => `
         <section class="menu__section">
           <h3 class="menu__section-title">${section.name}</h3>
+          ${section.note ? `<p class="menu__section-note">${escapeHtml(section.note)}</p>` : ''}
           ${section.items.map((item) => renderItem(item)).join('')}
         </section>`,
     )
