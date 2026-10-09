@@ -12,6 +12,7 @@ export default defineConfig({
         main: resolve(import.meta.dirname, 'index.html'),
         checker: resolve(import.meta.dirname, 'checker/index.html'),
         freshness: resolve(import.meta.dirname, 'freshness/index.html'),
+        office: resolve(import.meta.dirname, 'office/index.html'),
       },
     },
   },

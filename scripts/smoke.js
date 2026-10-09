@@ -49,6 +49,13 @@ try {
   assert.match(freshness, /Your coffee had a[\s\S]*very short commute/);
   assert.match(freshness, /noindex, nofollow, noarchive/);
 
+  const officeResponse = await fetch(`${BASE_URL}/office/`);
+  const office = await officeResponse.text();
+  assert.equal(officeResponse.status, 200);
+  assert.match(office, /Fuel the[\s\S]*whole office/);
+  assert.match(office, /10% <em>off<\/em>/);
+  assert.match(office, /noindex, nofollow, noarchive/);
+
   const videoResponse = await fetch(`${BASE_URL}/social/reel-01-mobile.mp4`, { method: 'HEAD' });
   assert.equal(videoResponse.status, 200);
   assert.equal(videoResponse.headers.get('content-type'), 'video/mp4');
