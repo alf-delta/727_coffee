@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
 const mainScript = readFileSync(join(ROOT, 'src/scripts/main.js'), 'utf8');
-const mainCss = readFileSync(join(ROOT, 'src/styles/main.css'), 'utf8');
+const mainCss = readFileSync(join(ROOT, 'src/styles/main.css'), 'utf8')
+  + readFileSync(join(ROOT, 'src/styles/menu.css'), 'utf8');
 
 test('ui performance: social feed uses exactly two loop sets and optimized media', () => {
   assert.equal((html.match(/class="social-gallery__set/g) || []).length, 2);

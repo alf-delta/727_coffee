@@ -7,7 +7,8 @@ import { kitchenMenu } from '../src/data/menu.js';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const menuScript = await readFile(path.join(projectRoot, 'src/scripts/menu.js'), 'utf8');
-const mainCss = await readFile(path.join(projectRoot, 'src/styles/main.css'), 'utf8');
+const mainCss = await readFile(path.join(projectRoot, 'src/styles/main.css'), 'utf8')
+  + await readFile(path.join(projectRoot, 'src/styles/menu.css'), 'utf8');
 const homeMarkup = await readFile(path.join(projectRoot, 'index.html'), 'utf8');
 
 test('kitchen cards expose complete detail content and valid images', async () => {
